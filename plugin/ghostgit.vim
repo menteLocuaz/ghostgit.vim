@@ -6,5 +6,7 @@ let g:loaded_ghostgit = 1
 
 let g:ghostgit_version = '0.1.0'
 
+call ghostgit#state#Init()
+
 command! GStatus call ghostgit#status#Open()
 command! -nargs=* Git call ghostgit#core#Run(split(<q-args>))

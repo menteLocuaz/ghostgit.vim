@@ -9,6 +9,7 @@ function! ghostgit#status#Open() abort
   endif
 
   call ghostgit#util#OpenBuffer('status')
+  call ghostgit#state#SetBuffer('status', 'status')
   call ghostgit#status#Refresh()
 
   nnoremap <silent><buffer> <cr> :call ghostgit#status#Diff()<CR>
@@ -20,10 +21,17 @@ function! ghostgit#status#Open() abort
 endfunction
 
 function! ghostgit#status#Refresh() abort
+  call ghostgit#state#SaveView('status')
+
   let l:raw_lines = ghostgit#git#Status()
   let l:items = map(l:raw_lines, 'ghostgit#parser#ParseStatusLine(v:val)')
+
+  call ghostgit#state#CacheItems('status', l:items)
+
   let l:lines = ghostgit#render#Status(l:items)
   call ghostgit#util#Render(l:lines)
+
+  call ghostgit#state#RestoreView('status')
 endfunction
 
 function! ghostgit#status#Stage() abort

@@ -31,13 +31,22 @@ endfunction
 
 
 " Return root from current repo
-function! ghostgit#core#RepoRoot() abort
-  let l:result = ghostgit#core#Run([
-        \ 'rev-parse',
-        \ '--show-toplevel'
-        \ ])
+function! ghostgit#core#RepoRoot(...) abort
+  let l:cwd = get(a:000, 0, '')
+  let l:entry = ghostgit#state#GetRepo(l:cwd)
+  if !empty(l:entry) && !empty(l:entry.git_dir)
+    return l:entry.git_dir
+  endif
 
-  return empty(l:result) ? '' : l:result[0]
+  let l:result = ghostgit#core#Run(['rev-parse', '--show-toplevel'], l:cwd)
+  if !empty(l:result)
+    let l:root = l:result[0]
+    call ghostgit#state#SetRepo(l:root)
+    let g:ghostgit_state.repos[l:root].git_dir = l:root
+    return l:root
+  endif
+
+  return ''
 endfunction
 
 

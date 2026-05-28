@@ -1,4 +1,5 @@
 Before:
+  call ghostgit#state#Init()
   let g:repo = ghostgit#test#Setup()
   let g:plain = tempname()
   call mkdir(g:plain, 'p')

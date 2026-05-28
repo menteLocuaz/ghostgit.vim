@@ -1,0 +1,87 @@
+Before:
+  let g:cwd = getcwd()
+
+After:
+  execute 'cd ' . fnameescape(g:cwd)
+  call ghostgit#state#Init()
+
+Execute (Init creates global state dict):
+  call ghostgit#state#Init()
+  Assert exists('g:ghostgit_state')
+  Assert has_key(g:ghostgit_state, 'repos')
+  Assert has_key(g:ghostgit_state, 'buffers')
+  AssertEqual type({}), type(g:ghostgit_state.repos)
+  AssertEqual type({}), type(g:ghostgit_state.buffers)
+
+Execute (Init is idempotent):
+  call ghostgit#state#Init()
+  let g:ghostgit_state.repos['/test'] = {}
+  call ghostgit#state#Init()
+  Assert has_key(g:ghostgit_state.repos, '/test')
+
+Execute (SetRepo creates entry):
+  call ghostgit#state#Init()
+  call ghostgit#state#SetRepo('/repo')
+  Assert has_key(g:ghostgit_state.repos, '/repo')
+  AssertEqual '', g:ghostgit_state.repos['/repo'].git_dir
+
+Execute (SetRepo is idempotent):
+  call ghostgit#state#Init()
+  call ghostgit#state#SetRepo('/repo')
+  let g:ghostgit_state.repos['/repo'].git_dir = '/repo'
+  call ghostgit#state#SetRepo('/repo')
+  AssertEqual '/repo', g:ghostgit_state.repos['/repo'].git_dir
+
+Execute (GetRepo returns entry for given root):
+  call ghostgit#state#Init()
+  call ghostgit#state#SetRepo('/myrepo')
+  let g:got = ghostgit#state#GetRepo('/myrepo')
+  AssertEqual g:got, g:ghostgit_state.repos['/myrepo']
+
+Execute (GetRepo returns empty dict for unknown root):
+  call ghostgit#state#Init()
+  let g:got = ghostgit#state#GetRepo('/nonexistent')
+  AssertEqual {}, g:got
+
+Execute (SetBuffer stores metadata):
+  call ghostgit#state#Init()
+  call ghostgit#state#SetBuffer('status', 'status')
+  Assert has_key(g:ghostgit_state.buffers, 'status')
+  AssertEqual 'status', g:ghostgit_state.buffers['status'].type
+
+Execute (GetBuffer returns buffer dict):
+  call ghostgit#state#Init()
+  call ghostgit#state#SetBuffer('mytest', 'testtype')
+  let g:buf = ghostgit#state#GetBuffer('mytest')
+  AssertEqual 'testtype', g:buf.type
+  AssertEqual [], g:buf.items
+  AssertEqual {}, g:buf.view
+
+Execute (GetBuffer returns empty dict for unknown name):
+  call ghostgit#state#Init()
+  AssertEqual {}, ghostgit#state#GetBuffer('nonexistent')
+
+Execute (CacheItems stores items in buffer state):
+  call ghostgit#state#Init()
+  call ghostgit#state#SetBuffer('cache_test', 'test')
+  let g:items = [{'index': 'M', 'worktree': ' ', 'file': 'f'}]
+  call ghostgit#state#CacheItems('cache_test', g:items)
+  AssertEqual g:items, g:ghostgit_state.buffers['cache_test'].items
+
+Execute (GetCachedItems retrieves previously cached items):
+  call ghostgit#state#Init()
+  call ghostgit#state#SetBuffer('ct2', 'test')
+  let g:items = [{'index': '?', 'worktree': '?', 'file': 'n'}]
+  call ghostgit#state#CacheItems('ct2', g:items)
+  AssertEqual g:items, ghostgit#state#GetCachedItems('ct2')
+
+Execute (GetCachedItems returns empty list for unknown buffer):
+  call ghostgit#state#Init()
+  AssertEqual [], ghostgit#state#GetCachedItems('nobuf')
+
+Execute (RemoveBuffer removes entry by bufnr):
+  call ghostgit#state#Init()
+  call ghostgit#state#SetBuffer('alone', 'test')
+  let g:bnr = g:ghostgit_state.buffers['alone'].bufnr
+  call ghostgit#state#RemoveBuffer(g:bnr)
+  AssertEqual {}, ghostgit#state#GetBuffer('alone')
