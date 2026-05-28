@@ -4,7 +4,10 @@
 
 " Run a git command and return output
 function! ghostgit#core#Run(args, ...) abort
-  let l:cwd = get(a:000, 0, getcwd())
+  let l:cwd = get(a:000, 0, '')
+  if empty(l:cwd)
+    let l:cwd = getcwd()
+  endif
 
   if type(a:args) == v:t_list
     let l:cmd = ['git'] + a:args
@@ -12,8 +15,11 @@ function! ghostgit#core#Run(args, ...) abort
     let l:cmd = ['git', a:args]
   endif
 
-  let l:output = systemlist(l:cmd, '', {'cwd': l:cwd})
+  let l:saved_cwd = getcwd()
+  execute 'cd ' . fnameescape(l:cwd)
+  let l:output = systemlist(l:cmd)
   let l:exit = v:shell_error
+  execute 'cd ' . fnameescape(l:saved_cwd)
 
   if l:exit != 0
     call ghostgit#util#Error(join(l:output, "\n"))
@@ -45,10 +51,6 @@ endfunction
 
 function! ghostgit#core#IsRepo(...) abort
   let l:cwd = get(a:000, 0, '')
-  let l:cmd = 'git rev-parse --git-dir'
-  if !empty(l:cwd)
-    let l:cmd = 'cd ' . shellescape(l:cwd) . ' && ' . l:cmd
-  endif
-  call systemlist(l:cmd)
-  return v:shell_error == 0
+  let l:output = ghostgit#core#Run(['rev-parse', '--git-dir'], l:cwd)
+  return !empty(l:output)
 endfunction

@@ -1,0 +1,35 @@
+Execute (ParseStatusLine parses staged line):
+  let g:item = ghostgit#parser#ParseStatusLine('M  foo.txt')
+  Assert g:item.index ==# 'M'
+  Assert g:item.worktree ==# ' '
+  Assert g:item.file ==# 'foo.txt'
+
+Execute (ParseStatusLine parses unstaged line):
+  let g:item = ghostgit#parser#ParseStatusLine(' M foo.txt')
+  Assert g:item.index ==# ' '
+  Assert g:item.worktree ==# 'M'
+  Assert g:item.file ==# 'foo.txt'
+
+Execute (ParseStatusLine parses untracked line):
+  let g:item = ghostgit#parser#ParseStatusLine('?? foo.txt')
+  Assert g:item.index ==# '?'
+  Assert g:item.worktree ==# '?'
+  Assert g:item.file ==# 'foo.txt'
+
+Execute (ParseStatusLine parses both modified line):
+  let g:item = ghostgit#parser#ParseStatusLine('MM foo.txt')
+  Assert g:item.index ==# 'M'
+  Assert g:item.worktree ==# 'M'
+  Assert g:item.file ==# 'foo.txt'
+
+Execute (Classify returns staged):
+  Assert ghostgit#parser#Classify({'index': 'M', 'worktree': ' ', 'file': 'f'}) ==# 'staged'
+
+Execute (Classify returns unstaged):
+  Assert ghostgit#parser#Classify({'index': ' ', 'worktree': 'M', 'file': 'f'}) ==# 'unstaged'
+
+Execute (Classify returns untracked):
+  Assert ghostgit#parser#Classify({'index': '?', 'worktree': '?', 'file': 'f'}) ==# 'untracked'
+
+Execute (Classify returns unmodified):
+  Assert ghostgit#parser#Classify({'index': ' ', 'worktree': ' ', 'file': 'f'}) ==# 'unmodified'

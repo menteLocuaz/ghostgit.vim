@@ -1,0 +1,27 @@
+Before:
+  let g:repo = ghostgit#test#Setup()
+  let g:cwd = getcwd()
+
+After:
+  call ghostgit#test#Teardown(g:repo)
+  execute 'cd ' . fnameescape(g:cwd)
+  silent! bd!
+
+Execute (diff#Open with --cached shows diff):
+  execute 'cd ' . fnameescape(g:repo)
+  call ghostgit#test#CreateFile(g:repo, 'file.txt', "hello\nworld\n")
+  call ghostgit#test#StageFile(g:repo, 'file.txt')
+  call ghostgit#diff#Open('file.txt', '--cached')
+  let g:text = join(getline(1, '$'), "\n")
+  Assert len(getline(1, '$')) > 0
+  Assert g:text =~# 'diff --git'
+
+Execute (diff#Open without cache shows diff):
+  execute 'cd ' . fnameescape(g:repo)
+  call ghostgit#test#CreateFile(g:repo, 'file.txt', "hello\nworld\n")
+  call ghostgit#test#StageFile(g:repo, 'file.txt')
+  call ghostgit#test#CreateFile(g:repo, 'file.txt', "hello\nworld\nnew line\n")
+  call ghostgit#diff#Open('file.txt')
+  let g:text = join(getline(1, '$'), "\n")
+  Assert len(getline(1, '$')) > 0
+  Assert g:text =~# 'diff --git'

@@ -1,0 +1,51 @@
+Before:
+  let g:repo = ghostgit#test#Setup()
+  let g:plain = tempname()
+  call mkdir(g:plain, 'p')
+  let g:cwd = getcwd()
+
+After:
+  call ghostgit#test#Teardown(g:repo)
+  call delete(g:plain, 'rf')
+  execute 'cd ' . fnameescape(g:cwd)
+
+Execute (ghostgit#core#Run with list args):
+  let g:result = ghostgit#core#Run(['rev-parse', '--show-toplevel'], g:repo)
+  Assert g:result[0] ==# g:repo
+
+Execute (ghostgit#core#Run with string arg):
+  let g:result = ghostgit#core#Run('status', g:repo)
+  Assert len(g:result) > 0
+
+Execute (ghostgit#core#Run returns empty list on failure):
+  let g:result = ghostgit#core#Run(['rev-parse', '--show-toplevel'], g:plain)
+  AssertEqual [], g:result
+
+Execute (ghostgit#core#Run defaults cwd to getcwd()):
+  execute 'cd ' . fnameescape(g:repo)
+  let g:result = ghostgit#core#Run(['rev-parse', '--show-toplevel'])
+  Assert g:result[0] ==# g:repo
+
+Execute (ghostgit#core#RepoRoot returns repo root):
+  execute 'cd ' . fnameescape(g:repo)
+  let g:root = ghostgit#core#RepoRoot()
+  Assert g:root ==# g:repo
+
+Execute (ghostgit#core#RepoRoot returns empty string outside repo):
+  execute 'cd ' . fnameescape(g:plain)
+  let g:root = ghostgit#core#RepoRoot()
+  Assert g:root ==# ''
+
+Execute (ghostgit#core#CurrentBranch returns branch name):
+  let g:branch = ghostgit#core#CurrentBranch(g:repo)
+  Assert g:branch ==# 'main'
+
+Execute (ghostgit#core#CurrentBranch returns empty string outside repo):
+  let g:branch = ghostgit#core#CurrentBranch(g:plain)
+  Assert g:branch ==# ''
+
+Execute (ghostgit#core#IsRepo returns 1 inside a repo):
+  Assert ghostgit#core#IsRepo(g:repo)
+
+Execute (ghostgit#core#IsRepo returns 0 outside a repo):
+  Assert !ghostgit#core#IsRepo(g:plain)

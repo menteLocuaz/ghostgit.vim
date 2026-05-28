@@ -1,0 +1,38 @@
+Before:
+  let g:staged_item   = {'index': 'M', 'worktree': ' ', 'file': 'staged.txt'}
+  let g:unstaged_item = {'index': ' ', 'worktree': 'M', 'file': 'unstaged.txt'}
+  let g:untracked_item = {'index': '?', 'worktree': '?', 'file': 'new.txt'}
+
+Execute (render empty items returns header and help):
+  let g:lines = ghostgit#render#Status([])
+  Assert len(g:lines) >= 4
+  Assert g:lines[0] =~# 'GhostGit'
+  Assert g:lines[-2] =~# 'Help:'
+
+Execute (render staged items shows staged section):
+  let g:lines = ghostgit#render#Status([g:staged_item])
+  let g:combined = join(g:lines, "\n")
+  Assert g:combined =~# 'Changes to be committed:'
+  Assert g:combined =~# 'staged.txt'
+
+Execute (render unstaged items shows unstaged section):
+  let g:lines = ghostgit#render#Status([g:unstaged_item])
+  let g:combined = join(g:lines, "\n")
+  Assert g:combined =~# 'Changes not staged for commit:'
+  Assert g:combined =~# 'unstaged.txt'
+
+Execute (render untracked items shows untracked section):
+  let g:lines = ghostgit#render#Status([g:untracked_item])
+  let g:combined = join(g:lines, "\n")
+  Assert g:combined =~# 'Untracked files:'
+  Assert g:combined =~# '?? new.txt'
+
+Execute (render mixed items shows all sections):
+  let g:lines = ghostgit#render#Status([g:staged_item, g:unstaged_item, g:untracked_item])
+  let g:combined = join(g:lines, "\n")
+  Assert g:combined =~# 'Changes to be committed:'
+  Assert g:combined =~# 'staged.txt'
+  Assert g:combined =~# 'Changes not staged for commit:'
+  Assert g:combined =~# 'unstaged.txt'
+  Assert g:combined =~# 'Untracked files:'
+  Assert g:combined =~# 'new.txt'

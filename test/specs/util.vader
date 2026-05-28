@@ -1,0 +1,46 @@
+Execute (OpenBuffer creates scratch buffer with correct settings):
+  call ghostgit#util#OpenBuffer('status')
+  Assert bufname('%') =~# 'ghostgit://status'
+  Assert &bufhidden ==# 'wipe'
+  Assert &buftype ==# 'nofile'
+  Assert !&swapfile
+  Assert !&modifiable
+  silent! bd! ghostgit://status
+
+Execute (Render sets buffer lines):
+  call ghostgit#util#OpenBuffer('render_test')
+  call ghostgit#util#Render(['line1', 'line2', 'line3'])
+  Assert getline(1) ==# 'line1'
+  Assert getline(2) ==# 'line2'
+  Assert getline(3) ==# 'line3'
+  silent! bd! ghostgit://render_test
+
+Execute (Render handles empty list):
+  call ghostgit#util#OpenBuffer('render_test')
+  call ghostgit#util#Render([])
+  Assert getline(1) ==# ''
+  silent! bd! ghostgit://render_test
+
+Execute (Error echoes message):
+  try
+    call ghostgit#util#Error('test error msg')
+    Assert 1
+  catch
+    Assert 0
+  endtry
+
+Execute (Info echoes message):
+  try
+    call ghostgit#util#Info('test info msg')
+    Assert 1
+  catch
+    Assert 0
+  endtry
+
+Execute (Warn echoes message):
+  try
+    call ghostgit#util#Warn('test warn msg')
+    Assert 1
+  catch
+    Assert 0
+  endtry

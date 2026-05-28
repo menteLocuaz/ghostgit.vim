@@ -24,7 +24,7 @@ function! ghostgit#util#OpenBuffer(name, ...) abort
   setlocal nofoldenable
   setlocal cursorline
   setlocal signcolumn=no
-  execute 'setlocal filetype=ghostgit_' . a:name
+  execute 'setlocal filetype=ghostgit_' . substitute(a:name, '/', '_', 'g')
 
   " Universal mapping to close the buffer
   nnoremap <silent><buffer> q :bd!<CR>
