@@ -69,7 +69,7 @@ Execute (ParseStatusLine handles malformed line):
 
 Execute (ParseStatusLine parses branch info):
   let g:item = ghostgit#parser#ParseStatusLine('# branch.oid abcdef1234567890abcdef1234567890abcdef12')
-  Assert g:item.type ==# 'unknown'  " Esta línea requiere tratamiento especial
+  Assert g:item.type ==# 'unknown'
   
   let g:item2 = ghostgit#parser#ParseStatusLine('# branch.head main')
   " Verificar si la función maneja correctamente la información de rama
@@ -134,13 +134,13 @@ Execute (Classify handles unknown type):
 " ============================================================================
 
 Execute (ParseStatusOutput parses multiple lines):
-  let l:lines = [
+  let g:parse_lines = [
     \ '## main',
     \ ' M modified.txt',
     \ 'A  added.txt',
     \ '?? untracked.txt'
     \ ]
-  let g:result = ghostgit#parser#ParseStatusOutput(l:lines)
+  let g:result = ghostgit#parser#ParseStatusOutput(g:parse_lines)
   Assert g:result.branch ==# 'main'
   Assert len(g:result.items) ==# 3
 
@@ -150,7 +150,7 @@ Execute (ParseStatusOutput handles empty input):
   Assert len(g:result.items) ==# 0
 
 Execute (ParseStatusOutput with complex scenario):
-  let l:lines = [
+  let g:parse_lines2 = [
     \ '# branch.oid abcdef1234567890abcdef1234567890abcdef12',
     \ '# branch.head feature-branch',
     \ '# branch.upstream origin/feature-branch',
@@ -163,7 +163,7 @@ Execute (ParseStatusOutput with complex scenario):
     \ 'UU conflicted.txt',
     \ 'R  old_name.txt -> new_name.txt'
     \ ]
-  let g:result = ghostgit#parser#ParseStatusOutput(l:lines)
+  let g:result = ghostgit#parser#ParseStatusOutput(g:parse_lines2)
   Assert g:result.branch ==# 'feature-branch'
   Assert len(g:result.items) ==# 6
 
@@ -172,28 +172,28 @@ Execute (ParseStatusOutput with complex scenario):
 " ============================================================================
 
 Execute (GetStatusDescription for staged file):
-  let l:item = {'index': 'M', 'worktree': ' ', 'file': 'test.txt'}
-  let g:description = ghostgit#parser#GetStatusDescription(l:item)
+  let g:desc_item = {'index': 'M', 'worktree': ' ', 'file': 'test.txt'}
+  let g:description = ghostgit#parser#GetStatusDescription(g:desc_item)
   Assert g:description ==# 'Modified (staged)'
 
 Execute (GetStatusDescription for unstaged file):
-  let l:item = {'index': ' ', 'worktree': 'M', 'file': 'test.txt'}
-  let g:description = ghostgit#parser#GetStatusDescription(l:item)
+  let g:desc_item2 = {'index': ' ', 'worktree': 'M', 'file': 'test.txt'}
+  let g:description = ghostgit#parser#GetStatusDescription(g:desc_item2)
   Assert g:description ==# 'Modified (not staged)'
 
 Execute (GetStatusDescription for untracked file):
-  let l:item = {'index': '?', 'worktree': '?', 'file': 'test.txt'}
-  let g:description = ghostgit#parser#GetStatusDescription(l:item)
+  let g:desc_item3 = {'index': '?', 'worktree': '?', 'file': 'test.txt'}
+  let g:description = ghostgit#parser#GetStatusDescription(g:desc_item3)
   Assert g:description ==# 'Untracked file'
 
 Execute (GetStatusDescription for conflicted file):
-  let l:item = {'index': 'U', 'worktree': ' ', 'file': 'test.txt'}
-  let g:description = ghostgit#parser#GetStatusDescription(l:item)
+  let g:desc_item4 = {'index': 'U', 'worktree': ' ', 'file': 'test.txt'}
+  let g:description = ghostgit#parser#GetStatusDescription(g:desc_item4)
   Assert g:description ==# 'Unresolved conflict'
 
 Execute (GetStatusDescription for unmodified file):
-  let l:item = {'index': ' ', 'worktree': ' ', 'file': 'test.txt'}
-  let g:description = ghostgit#parser#GetStatusDescription(l:item)
+  let g:desc_item5 = {'index': ' ', 'worktree': ' ', 'file': 'test.txt'}
+  let g:description = ghostgit#parser#GetStatusDescription(g:desc_item5)
   Assert g:description ==# 'Unmodified'
 
 Execute (GetStatusDescription handles empty item):
@@ -238,10 +238,10 @@ Execute (Parser handles unicode filenames):
   Assert g:item.file ==# '文件.txt'
 
 Execute (Parser handles very long filenames):
-  let l:long_filename = repeat('a', 200) . '.txt'
-  let g:item = ghostgit#parser#ParseStatusLine('M  ' . l:long_filename)
+  let g:long_filename = repeat('a', 200) . '.txt'
+  let g:item = ghostgit#parser#ParseStatusLine('M  ' . g:long_filename)
   Assert g:item.index ==# 'M'
-  Assert g:item.file ==# l:long_filename
+  Assert g:item.file ==# g:long_filename
 
 Execute (Parser functions handle null values):
   " Estas pruebas verifican que las funciones no fallen con valores null/indefinidos
@@ -259,30 +259,30 @@ Execute (Parser functions handle null values):
 
 Execute (Parser functions perform reasonably fast):
   " Crear datos de prueba
-  let l:test_lines = []
-  for l:i in range(100)
-    call add(l:test_lines, 'M  file' . l:i . '.txt')
+  let g:test_lines = []
+  for i in range(100)
+    call add(g:test_lines, 'M  file' . i . '.txt')
   endfor
   
   " Medir tiempo de ParseStatusOutput
-  let l:start = reltime()
-  for l:i in range(50)
-    let g:dummy = ghostgit#parser#ParseStatusOutput(l:test_lines)
+  let g:parse_start = reltime()
+  for i in range(50)
+    let g:dummy = ghostgit#parser#ParseStatusOutput(g:test_lines)
   endfor
-  let l:elapsed = reltimefloat(reltime(l:start))
-  Assert l:elapsed < 1.0  " Debería ser rápido incluso con muchos archivos
+  let g:parse_elapsed = reltimefloat(reltime(g:parse_start))
+  Assert g:parse_elapsed < 1.0
 
 Execute (Classification is fast for large datasets):
   " Crear muchos ítems para clasificar
-  let l:test_items = []
-  for l:i in range(1000)
-    call add(l:test_items, {'index': 'M', 'worktree': ' ', 'file': 'test' . l:i . '.txt'})
+  let g:test_items = []
+  for i in range(1000)
+    call add(g:test_items, {'index': 'M', 'worktree': ' ', 'file': 'test' . i . '.txt'})
   endfor
   
   " Medir tiempo de clasificación
-  let l:start = reltime()
-  for l:item in l:test_items
-    let g:dummy = ghostgit#parser#Classify(l:item)
+  let g:classify_start = reltime()
+  for item in g:test_items
+    let g:dummy = ghostgit#parser#Classify(item)
   endfor
-  let l:elapsed = reltimefloat(reltime(l:start))
-  Assert l:elapsed < 1.0  " Debería manejar grandes cantidades eficientemente
+  let g:classify_elapsed = reltimefloat(reltime(g:classify_start))
+  Assert g:classify_elapsed < 1.0

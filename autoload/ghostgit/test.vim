@@ -11,7 +11,19 @@ function! ghostgit#test#Setup() abort
   call systemlist(['git', '-C', l:dir, 'init', '-b', 'main'])
   call systemlist(['git', '-C', l:dir, 'config', 'user.email', 'test@ghostgit.dev'])
   call systemlist(['git', '-C', l:dir, 'config', 'user.name', 'GhostGit Test'])
+  call systemlist(['git', '-C', l:dir, 'config', 'core.quotePath', 'false'])
   call systemlist(['git', '-C', l:dir, 'commit', '--allow-empty', '-m', 'initial commit'])
+  return l:dir
+endfunction
+
+function! ghostgit#test#SetupEmptyRepo() abort
+  let s:test_counter += 1
+  let l:dir = tempname() . s:test_counter
+  call mkdir(l:dir, 'p')
+  call systemlist(['git', '-C', l:dir, 'init', '-b', 'main'])
+  call systemlist(['git', '-C', l:dir, 'config', 'user.email', 'test@ghostgit.dev'])
+  call systemlist(['git', '-C', l:dir, 'config', 'user.name', 'GhostGit Test'])
+  call systemlist(['git', '-C', l:dir, 'config', 'core.quotePath', 'false'])
   return l:dir
 endfunction
 

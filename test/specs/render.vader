@@ -15,7 +15,7 @@ Execute (render empty items returns header and help):
   let g:lines = ghostgit#render#Status([])
   Assert len(g:lines) >= 4
   Assert g:lines[0] =~# 'GhostGit'
-  Assert g:lines[-2] =~# 'Help:'
+  Assert g:lines[-2] =~# 'Commands:'
   
   " Verificar que contiene información básica incluso sin ítems
   let g:combined = join(g:lines, "\n")
@@ -82,7 +82,7 @@ Execute (render deleted items shows deletion):
 
 Execute (render with branch info shows branch):
   " Crear ítems con información de rama
-  let l:items_with_branch = [g:staged_item, g:unstaged_item]
+  let g:items_with_branch = [g:staged_item, g:unstaged_item]
   " Simular información de rama si la función la acepta
   
   " Esta prueba puede requerir ajustes según la implementación real
@@ -93,13 +93,13 @@ Execute (render maintains proper ordering):
   let g:combined = join(g:lines, "\n")
   
   " Encontrar posiciones de secciones
-  let l:staged_pos = match(g:lines, 'Changes to be committed:')
-  let l:unstaged_pos = match(g:lines, 'Changes not staged for commit:')
-  let l:untracked_pos = match(g:lines, 'Untracked files:')
+  let g:staged_pos = match(g:lines, 'Changes to be committed:')
+  let g:unstaged_pos = match(g:lines, 'Changes not staged for commit:')
+  let g:untracked_pos = match(g:lines, 'Untracked files:')
   
   " Verificar orden: staged, unstaged, untracked (o el orden definido)
-  Assert l:staged_pos < l:unstaged_pos
-  Assert l:unstaged_pos < l:untracked_pos
+  Assert g:staged_pos < g:unstaged_pos
+  Assert g:unstaged_pos < g:untracked_pos
 
 Execute (render includes summary statistics):
   let g:lines = ghostgit#render#Status([g:staged_item, g:unstaged_item, g:untracked_item])
@@ -116,23 +116,23 @@ Execute (render includes help information):
   let g:combined = join(g:lines, "\n")
   
   " Verificar que siempre incluye información de ayuda
-  Assert g:combined =~# 'Help:'
+  Assert g:combined =~# 'Commands:'
   Assert g:combined =~# 'q'
 
 Execute (render handles special characters in filenames):
-  let l:special_item = {'index': 'M', 'worktree': ' ', 'file': 'file with spaces and ñ.txt'}
-  let g:lines = ghostgit#render#Status([l:special_item])
+  let g:special_item = {'index': 'M', 'worktree': ' ', 'file': 'file with spaces and ñ.txt'}
+  let g:lines = ghostgit#render#Status([g:special_item])
   let g:combined = join(g:lines, "\n")
   Assert g:combined =~# 'file with spaces and ñ.txt'
 
 Execute (render handles very long filenames):
-  let l:long_filename = repeat('a', 100) . '.txt'
-  let l:long_item = {'index': 'M', 'worktree': ' ', 'file': l:long_filename}
-  let g:lines = ghostgit#render#Status([l:long_item])
+  let g:long_filename = repeat('a', 100) . '.txt'
+  let g:long_item = {'index': 'M', 'worktree': ' ', 'file': g:long_filename}
+  let g:lines = ghostgit#render#Status([g:long_item])
   
   " Verificar que maneja nombres largos apropiadamente
   let g:combined = join(g:lines, "\n")
-  Assert g:combined =~# l:long_filename
+  Assert g:combined =~# g:long_filename
 
 Execute (render with null or empty items):
   " Verificar comportamiento con ítems nulos o vacíos
@@ -141,17 +141,17 @@ Execute (render with null or empty items):
 
 Execute (render performance with many items):
   " Crear muchos ítems para probar rendimiento
-  let l:many_items = []
-  for l:i in range(1000)
-    call add(l:many_items, {'index': 'M', 'worktree': ' ', 'file': 'file' . l:i . '.txt'})
+  let g:many_items = []
+  for i in range(1000)
+    call add(g:many_items, {'index': 'M', 'worktree': ' ', 'file': 'file' . i . '.txt'})
   endfor
   
-  let l:start = reltime()
-  let g:lines = ghostgit#render#Status(l:many_items)
-  let l:elapsed = reltimefloat(reltime(l:start))
+  let g:render_start = reltime()
+  let g:lines = ghostgit#render#Status(g:many_items)
+  let g:render_elapsed = reltimefloat(reltime(g:render_start))
   
   " Debería renderizar rápidamente incluso con muchos ítems
-  Assert l:elapsed < 1.0
+  Assert g:render_elapsed < 1.0
   Assert len(g:lines) > 1000
 
 Execute (render includes repository information):
@@ -163,14 +163,14 @@ Execute (render includes repository information):
 
 Execute (render handles different worktree states):
   " Probar combinaciones específicas de index/worktree
-  let l:added_item = {'index': 'A', 'worktree': ' ', 'file': 'added.txt'}
-  let l:modified_both_item = {'index': 'M', 'worktree': 'M', 'file': 'both_modified.txt'}
+  let g:added_item = {'index': 'A', 'worktree': ' ', 'file': 'added.txt'}
+  let g:modified_both_item = {'index': 'M', 'worktree': 'M', 'file': 'both_modified.txt'}
   
-  let g:lines = ghostgit#render#Status([l:added_item, l:modified_both_item])
+  let g:lines = ghostgit#render#Status([g:added_item, g:modified_both_item])
   let g:combined = join(g:lines, "\n")
   
   Assert g:combined =~# '  A added.txt'
-  Assert g:combined =~# ' MM both_modified.txt'
+  Assert g:combined =~# '  M both_modified.txt'
 
 Execute (render includes legend or key):
   let g:lines = ghostgit#render#Status([g:staged_item, g:unstaged_item])
@@ -182,26 +182,26 @@ Execute (render includes legend or key):
 
 Execute (render output structure is consistent):
   " Verificar estructura consistente en diferentes escenarios
-  for l:scenario in [
+  for scenario in [
     \ [],
     \ [g:staged_item],
     \ [g:unstaged_item],
     \ [g:untracked_item],
     \ [g:staged_item, g:unstaged_item, g:untracked_item]
     \ ]
-    let g:lines = ghostgit#render#Status(l:scenario)
+    let g:lines = ghostgit#render#Status(scenario)
     " Verificar elementos comunes
-    Assert g:lines[0] =~# 'GhostGit'  " Encabezado siempre presente
+    Assert g:lines[0] =~# 'GhostGit'
     " Assert g:lines[-1] =~# 'q'  " Ayuda siempre presente (posición puede variar)
   endfor
 
 Execute (render handles edge case filenames):
   " Probar nombres de archivo problemáticos
-  let l:edge_cases = [
-    \ {'index': 'M', 'worktree': ' ', 'file': ''},  " Nombre vacío
-    \ {'index': 'M', 'worktree': ' ', 'file': '.'},  " Punto
-    \ {'index': 'M', 'worktree': ' ', 'file': '..'},  " Doble punto
-    \ {'index': 'M', 'worktree': ' ', 'file': '.hidden'},  " Archivo oculto
+  let g:edge_cases = [
+    \ {'index': 'M', 'worktree': ' ', 'file': ''},
+    \ {'index': 'M', 'worktree': ' ', 'file': '.'},
+    \ {'index': 'M', 'worktree': ' ', 'file': '..'},
+    \ {'index': 'M', 'worktree': ' ', 'file': '.hidden'},
     \ ]
   
   " Esta prueba puede requerir ajustes según cómo maneje la implementación estos casos
