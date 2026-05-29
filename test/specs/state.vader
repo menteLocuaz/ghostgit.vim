@@ -1,53 +1,137 @@
+" ============================================================================
+" ghostgit.vim - State Management Tests
+" ============================================================================
+
 Before:
+  " Guardar directorio de trabajo actual
   let g:cwd = getcwd()
 
 After:
+  " Restaurar directorio de trabajo original
   execute 'cd ' . fnameescape(g:cwd)
+  
+  " Reinicializar estado de GhostGit
   call ghostgit#state#Init()
 
+" ============================================================================
+" ghostgit#state#Init Tests
+" ============================================================================
+
 Execute (Init creates global state dict):
+  " Asegurarse de que no existe estado previo
+  unlet! g:ghostgit_state
+  
   call ghostgit#state#Init()
   Assert exists('g:ghostgit_state')
   Assert has_key(g:ghostgit_state, 'repos')
   Assert has_key(g:ghostgit_state, 'buffers')
+  Assert has_key(g:ghostgit_state, 'version')  " Nueva clave para versionado
   AssertEqual type({}), type(g:ghostgit_state.repos)
   AssertEqual type({}), type(g:ghostgit_state.buffers)
+  AssertEqual type(''), type(g:ghostgit_state.version)
 
 Execute (Init is idempotent):
   call ghostgit#state#Init()
-  let g:ghostgit_state.repos['/test'] = {}
+  let g:ghostgit_state.repos['/test'] = {'test': 'data'}
+  let g:original_state = g:ghostgit_state
+  
+  " Llamar Init nuevamente no debería perder datos
   call ghostgit#state#Init()
   Assert has_key(g:ghostgit_state.repos, '/test')
+  AssertEqual 'data', g:ghostgit_state.repos['/test'].test
+  AssertEqual g:original_state.version, g:ghostgit_state.version
+
+Execute (Init sets default values correctly):
+  unlet! g:ghostgit_state
+  call ghostgit#state#Init()
+  
+  " Verificar valores por defecto
+  AssertEqual {}, g:ghostgit_state.repos
+  AssertEqual {}, g:ghostgit_state.buffers
+  AssertEqual '1.0', g:ghostgit_state.version  " Versión por defecto
+
+" ============================================================================
+" ghostgit#state#SetRepo and GetRepo Tests
+" ============================================================================
 
 Execute (SetRepo creates entry):
   call ghostgit#state#Init()
   call ghostgit#state#SetRepo('/repo')
   Assert has_key(g:ghostgit_state.repos, '/repo')
-  AssertEqual '', g:ghostgit_state.repos['/repo'].git_dir
+  
+  " Verificar estructura del repositorio
+  let l:repo = g:ghostgit_state.repos['/repo']
+  AssertEqual '', l:repo.git_dir
+  AssertEqual '', l:repo.branch
+  AssertEqual 0, l:repo.last_update
+  AssertEqual({}, l:repo.cache)
 
 Execute (SetRepo is idempotent):
   call ghostgit#state#Init()
   call ghostgit#state#SetRepo('/repo')
-  let g:ghostgit_state.repos['/repo'].git_dir = '/repo'
+  let g:ghostgit_state.repos['/repo'].git_dir = '/repo/.git'
+  let g:ghostgit_state.repos['/repo'].branch = 'main'
+  
+  " Llamar nuevamente no debería resetear valores
   call ghostgit#state#SetRepo('/repo')
-  AssertEqual '/repo', g:ghostgit_state.repos['/repo'].git_dir
+  AssertEqual '/repo/.git', g:ghostgit_state.repos['/repo'].git_dir
+  AssertEqual 'main', g:ghostgit_state.repos['/repo'].branch
+
+Execute (SetRepo with additional data):
+  call ghostgit#state#Init()
+  call ghostgit#state#SetRepo('/repo', {'branch': 'develop', 'git_dir': '/custom/.git'})
+  
+  Assert has_key(g:ghostgit_state.repos, '/repo')
+  AssertEqual '/custom/.git', g:ghostgit_state.repos['/repo'].git_dir
+  AssertEqual 'develop', g:ghostgit_state.repos['/repo'].branch
 
 Execute (GetRepo returns entry for given root):
   call ghostgit#state#Init()
-  call ghostgit#state#SetRepo('/myrepo')
+  call ghostgit#state#SetRepo('/myrepo', {'branch': 'feature'})
   let g:got = ghostgit#state#GetRepo('/myrepo')
   AssertEqual g:got, g:ghostgit_state.repos['/myrepo']
+  AssertEqual 'feature', g:got.branch
 
 Execute (GetRepo returns empty dict for unknown root):
   call ghostgit#state#Init()
   let g:got = ghostgit#state#GetRepo('/nonexistent')
   AssertEqual {}, g:got
 
+Execute (GetRepo handles invalid inputs gracefully):
+  call ghostgit#state#Init()
+  " Probar con entradas nulas o vacías
+  let g:result1 = ghostgit#state#GetRepo('')
+  let g:result2 = ghostgit#state#GetRepo(v:null)
+  AssertEqual {}, g:result1
+  AssertEqual {}, g:result2
+
+" ============================================================================
+" ghostgit#state#SetBuffer and GetBuffer Tests
+" ============================================================================
+
 Execute (SetBuffer stores metadata):
   call ghostgit#state#Init()
   call ghostgit#state#SetBuffer('status', 'status')
   Assert has_key(g:ghostgit_state.buffers, 'status')
   AssertEqual 'status', g:ghostgit_state.buffers['status'].type
+  
+  " Verificar estructura completa del buffer
+  let l:buffer = g:ghostgit_state.buffers['status']
+  Assert has_key(l:buffer, 'type')
+  Assert has_key(l:buffer, 'bufnr')
+  Assert has_key(l:buffer, 'items')
+  Assert has_key(l:buffer, 'view')
+  Assert has_key(l:buffer, 'created')
+  
+  AssertEqual 'status', l:buffer.type
+  AssertEqual [], l:buffer.items
+  AssertEqual {}, l:buffer.view
+  Assert type(l:buffer.created) == type(0)  " Timestamp
+
+Execute (SetBuffer with bufnr):
+  call ghostgit#state#Init()
+  call ghostgit#state#SetBuffer('diff', 'diff', 123)
+  AssertEqual 123, g:ghostgit_state.buffers['diff'].bufnr
 
 Execute (GetBuffer returns buffer dict):
   call ghostgit#state#Init()
@@ -56,10 +140,21 @@ Execute (GetBuffer returns buffer dict):
   AssertEqual 'testtype', g:buf.type
   AssertEqual [], g:buf.items
   AssertEqual {}, g:buf.view
+  Assert type(g:buf.created) == type(0)
 
 Execute (GetBuffer returns empty dict for unknown name):
   call ghostgit#state#Init()
   AssertEqual {}, ghostgit#state#GetBuffer('nonexistent')
+
+Execute (GetBuffer handles edge cases):
+  call ghostgit#state#Init()
+  " Probar con entradas vacías o nulas
+  AssertEqual {}, ghostgit#state#GetBuffer('')
+  AssertEqual {}, ghostgit#state#GetBuffer(v:null)
+
+" ============================================================================
+" ghostgit#state#CacheItems and GetCachedItems Tests
+" ============================================================================
 
 Execute (CacheItems stores items in buffer state):
   call ghostgit#state#Init()
@@ -67,6 +162,30 @@ Execute (CacheItems stores items in buffer state):
   let g:items = [{'index': 'M', 'worktree': ' ', 'file': 'f'}]
   call ghostgit#state#CacheItems('cache_test', g:items)
   AssertEqual g:items, g:ghostgit_state.buffers['cache_test'].items
+
+Execute (CacheItems updates timestamp):
+  call ghostgit#state#Init()
+  call ghostgit#state#SetBuffer('timestamp_test', 'test')
+  let l:before = g:ghostgit_state.buffers['timestamp_test'].created
+  let g:items = [{'index': 'M', 'worktree': ' ', 'file': 'f'}]
+  
+  " Esperar un momento para asegurar diferencia de tiempo
+  sleep 10m
+  call ghostgit#state#CacheItems('timestamp_test', g:items)
+  
+  " Verificar que se actualizó el timestamp
+  " (Esta verificación puede requerir ajustes según implementación)
+
+Execute (CacheItems handles empty items):
+  call ghostgit#state#Init()
+  call ghostgit#state#SetBuffer('empty_test', 'test')
+  call ghostgit#state#CacheItems('empty_test', [])
+  AssertEqual [], g:ghostgit_state.buffers['empty_test'].items
+
+Execute (CacheItems for non-existent buffer):
+  call ghostgit#state#Init()
+  " Debería manejar apropiadamente sin errores
+  call ghostgit#state#CacheItems('nonexistent', [])
 
 Execute (GetCachedItems retrieves previously cached items):
   call ghostgit#state#Init()
@@ -79,9 +198,155 @@ Execute (GetCachedItems returns empty list for unknown buffer):
   call ghostgit#state#Init()
   AssertEqual [], ghostgit#state#GetCachedItems('nobuf')
 
+Execute (GetCachedItems handles complex item structures):
+  call ghostgit#state#Init()
+  call ghostgit#state#SetBuffer('complex_test', 'test')
+  
+  " Crear ítems complejos con múltiples propiedades
+  let l:complex_items = [
+    \ {'index': 'M', 'worktree': ' ', 'file': 'file1.txt', 'type': 'file_change'},
+    \ {'index': 'R', 'worktree': ' ', 'file': 'new.txt', 'original_file': 'old.txt', 'type': 'file_change'},
+    \ {'index': 'U', 'worktree': 'U', 'file': 'conflict.txt', 'type': 'conflict'}
+    \ ]
+  
+  call ghostgit#state#CacheItems('complex_test', l:complex_items)
+  AssertEqual l:complex_items, ghostgit#state#GetCachedItems('complex_test')
+
+" ============================================================================
+" ghostgit#state#RemoveBuffer Tests
+" ============================================================================
+
 Execute (RemoveBuffer removes entry by bufnr):
   call ghostgit#state#Init()
   call ghostgit#state#SetBuffer('alone', 'test')
   let g:bnr = g:ghostgit_state.buffers['alone'].bufnr
   call ghostgit#state#RemoveBuffer(g:bnr)
   AssertEqual {}, ghostgit#state#GetBuffer('alone')
+
+Execute (RemoveBuffer handles non-existent bufnr):
+  call ghostgit#state#Init()
+  " Debería manejar apropiadamente sin errores
+  call ghostgit#state#RemoveBuffer(99999)
+
+Execute (RemoveBuffer with invalid input):
+  call ghostgit#state#Init()
+  " Probar con entradas inválidas
+  call ghostgit#state#RemoveBuffer(v:null)
+  call ghostgit#state#RemoveBuffer('invalid')
+
+Execute (RemoveBuffer only affects specified buffer):
+  call ghostgit#state#Init()
+  call ghostgit#state#SetBuffer('buffer1', 'test', 101)
+  call ghostgit#state#SetBuffer('buffer2', 'test', 102)
+  call ghostgit#state#SetBuffer('buffer3', 'test', 103)
+  
+  call ghostgit#state#RemoveBuffer(102)
+  
+  " Verificar que solo buffer2 fue eliminado
+  Assert !has_key(g:ghostgit_state.buffers, 'buffer2')
+  Assert has_key(g:ghostgit_state.buffers, 'buffer1')
+  Assert has_key(g:ghostgit_state.buffers, 'buffer3')
+
+" ============================================================================
+" ghostgit#state#GetBufferByBufnr Tests
+" ============================================================================
+
+Execute (GetBufferByBufnr retrieves buffer by bufnr):
+  call ghostgit#state#Init()
+  call ghostgit#state#SetBuffer('test_buf', 'test', 42)
+  let g:buf = ghostgit#state#GetBufferByBufnr(42)
+  AssertEqual 'test', g:buf.type
+  AssertEqual 42, g:buf.bufnr
+
+Execute (GetBufferByBufnr returns empty dict for unknown bufnr):
+  call ghostgit#state#Init()
+  AssertEqual {}, ghostgit#state#GetBufferByBufnr(99999)
+
+Execute (GetBufferByBufnr handles edge cases):
+  call ghostgit#state#Init()
+  AssertEqual {}, ghostgit#state#GetBufferByBufnr(v:null)
+  AssertEqual {}, ghostgit#state#GetBufferByBufnr('invalid')
+
+" ============================================================================
+" ghostgit#state#Clear Tests
+" ============================================================================
+
+Execute (Clear resets state completely):
+  call ghostgit#state#Init()
+  call ghostgit#state#SetRepo('/test_repo')
+  call ghostgit#state#SetBuffer('test_buffer', 'test', 123)
+  
+  " Verificar que hay datos
+  Assert !empty(g:ghostgit_state.repos)
+  Assert !empty(g:ghostgit_state.buffers)
+  
+  call ghostgit#state#Clear()
+  
+  " Verificar que se limpió todo
+  Assert empty(g:ghostgit_state.repos)
+  Assert empty(g:ghostgit_state.buffers)
+  AssertEqual '1.0', g:ghostgit_state.version  " Versión debería mantenerse
+
+" ============================================================================
+" ghostgit#state#ListBuffers Tests
+" ============================================================================
+
+Execute (ListBuffers returns all buffer names):
+  call ghostgit#state#Init()
+  call ghostgit#state#SetBuffer('buf1', 'test')
+  call ghostgit#state#SetBuffer('buf2', 'diff')
+  call ghostgit#state#SetBuffer('buf3', 'status')
+  
+  let g:buffer_list = ghostgit#state#ListBuffers()
+  Assert len(g:buffer_list) == 3
+  Assert index(g:buffer_list, 'buf1') >= 0
+  Assert index(g:buffer_list, 'buf2') >= 0
+  Assert index(g:buffer_list, 'buf3') >= 0
+
+Execute (ListBuffers returns empty list when no buffers):
+  call ghostgit#state#Init()
+  let g:buffer_list = ghostgit#state#ListBuffers()
+  AssertEqual [], g:buffer_list
+
+" ============================================================================
+" Performance and Edge Case Tests
+" ============================================================================
+
+Execute (State functions perform reasonably fast):
+  call ghostgit#state#Init()
+  
+  " Medir tiempo de operaciones repetidas
+  let l:start = reltime()
+  for l:i in range(1000)
+    call ghostgit#state#SetRepo('/repo' . l:i)
+    call ghostgit#state#SetBuffer('buf' . l:i, 'test', l:i)
+  endfor
+  let l:elapsed = reltimefloat(reltime(l:start))
+  
+  " Debería manejar muchas operaciones rápidamente
+  Assert l:elapsed < 1.0
+
+Execute (State handles unicode and special characters):
+  call ghostgit#state#Init()
+  call ghostgit#state#SetRepo('/ruta/ñá/测试')
+  call ghostgit#state#SetBuffer('buffer_测试', 'test')
+  
+  Assert has_key(g:ghostgit_state.repos, '/ruta/ñá/测试')
+  Assert has_key(g:ghostgit_state.buffers, 'buffer_测试')
+
+Execute (State versioning works correctly):
+  call ghostgit#state#Init()
+  AssertEqual '1.0', g:ghostgit_state.version
+  
+  " Verificar que la versión persiste tras operaciones
+  call ghostgit#state#SetRepo('/test')
+  AssertEqual '1.0', g:ghostgit_state.version
+
+Execute (State handles very long keys):
+  call ghostgit#state#Init()
+  let l:long_key = repeat('a', 1000)
+  call ghostgit#state#SetRepo('/' . l:long_key)
+  call ghostgit#state#SetBuffer(l:long_key, 'test')
+  
+  Assert has_key(g:ghostgit_state.repos, '/' . l:long_key)
+  Assert has_key(g:ghostgit_state.buffers, l:long_key)

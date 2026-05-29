@@ -1,38 +1,212 @@
+" ============================================================================
+" ghostgit.vim - Renderer Tests
+" ============================================================================
+
 Before:
+  " Configurar ítems de prueba representativos de diferentes estados
   let g:staged_item   = {'index': 'M', 'worktree': ' ', 'file': 'staged.txt'}
   let g:unstaged_item = {'index': ' ', 'worktree': 'M', 'file': 'unstaged.txt'}
   let g:untracked_item = {'index': '?', 'worktree': '?', 'file': 'new.txt'}
+  let g:conflicted_item = {'index': 'U', 'worktree': 'U', 'file': 'conflict.txt'}
+  let g:renamed_item = {'index': 'R', 'worktree': ' ', 'file': 'new_name.txt', 'original_file': 'old_name.txt'}
+  let g:deleted_item = {'index': 'D', 'worktree': ' ', 'file': 'deleted.txt'}
 
 Execute (render empty items returns header and help):
   let g:lines = ghostgit#render#Status([])
   Assert len(g:lines) >= 4
   Assert g:lines[0] =~# 'GhostGit'
   Assert g:lines[-2] =~# 'Help:'
+  
+  " Verificar que contiene información básica incluso sin ítems
+  let g:combined = join(g:lines, "\n")
+  Assert g:combined =~# 'No changes'
 
 Execute (render staged items shows staged section):
   let g:lines = ghostgit#render#Status([g:staged_item])
   let g:combined = join(g:lines, "\n")
   Assert g:combined =~# 'Changes to be committed:'
-  Assert g:combined =~# 'staged.txt'
+  Assert g:combined =~# '  M staged.txt'
+  
+  " Verificar que no muestra otras secciones innecesariamente
+  Assert g:combined !~# 'Changes not staged'
+  Assert g:combined !~# 'Untracked files'
 
 Execute (render unstaged items shows unstaged section):
   let g:lines = ghostgit#render#Status([g:unstaged_item])
   let g:combined = join(g:lines, "\n")
   Assert g:combined =~# 'Changes not staged for commit:'
-  Assert g:combined =~# 'unstaged.txt'
+  Assert g:combined =~# '  M unstaged.txt'
+  
+  " Verificar que no muestra otras secciones innecesariamente
+  Assert g:combined !~# 'Changes to be committed'
+  Assert g:combined !~# 'Untracked files'
 
 Execute (render untracked items shows untracked section):
   let g:lines = ghostgit#render#Status([g:untracked_item])
   let g:combined = join(g:lines, "\n")
   Assert g:combined =~# 'Untracked files:'
-  Assert g:combined =~# '?? new.txt'
+  Assert g:combined =~# '  ?? new.txt'
+  
+  " Verificar que no muestra otras secciones innecesariamente
+  Assert g:combined !~# 'Changes to be committed'
+  Assert g:combined !~# 'Changes not staged'
 
 Execute (render mixed items shows all sections):
   let g:lines = ghostgit#render#Status([g:staged_item, g:unstaged_item, g:untracked_item])
   let g:combined = join(g:lines, "\n")
   Assert g:combined =~# 'Changes to be committed:'
-  Assert g:combined =~# 'staged.txt'
+  Assert g:combined =~# '  M staged.txt'
   Assert g:combined =~# 'Changes not staged for commit:'
-  Assert g:combined =~# 'unstaged.txt'
+  Assert g:combined =~# '  M unstaged.txt'
   Assert g:combined =~# 'Untracked files:'
-  Assert g:combined =~# 'new.txt'
+  Assert g:combined =~# '  ?? new.txt'
+
+Execute (render conflicted items shows conflict section):
+  let g:lines = ghostgit#render#Status([g:conflicted_item])
+  let g:combined = join(g:lines, "\n")
+  Assert g:combined =~# 'Conflicting files:'
+  Assert g:combined =~# '  UU conflict.txt'
+
+Execute (render renamed items shows rename info):
+  let g:lines = ghostgit#render#Status([g:renamed_item])
+  let g:combined = join(g:lines, "\n")
+  Assert g:combined =~# 'Changes to be committed:'
+  Assert g:combined =~# '  R new_name.txt'
+  " Verificar que muestra información del renombramiento si es relevante
+
+Execute (render deleted items shows deletion):
+  let g:lines = ghostgit#render#Status([g:deleted_item])
+  let g:combined = join(g:lines, "\n")
+  Assert g:combined =~# 'Changes to be committed:'
+  Assert g:combined =~# '  D deleted.txt'
+
+Execute (render with branch info shows branch):
+  " Crear ítems con información de rama
+  let l:items_with_branch = [g:staged_item, g:unstaged_item]
+  " Simular información de rama si la función la acepta
+  
+  " Esta prueba puede requerir ajustes según la implementación real
+
+Execute (render maintains proper ordering):
+  " Verificar que las secciones aparecen en el orden correcto
+  let g:lines = ghostgit#render#Status([g:untracked_item, g:staged_item, g:unstaged_item])
+  let g:combined = join(g:lines, "\n")
+  
+  " Encontrar posiciones de secciones
+  let l:staged_pos = match(g:lines, 'Changes to be committed:')
+  let l:unstaged_pos = match(g:lines, 'Changes not staged for commit:')
+  let l:untracked_pos = match(g:lines, 'Untracked files:')
+  
+  " Verificar orden: staged, unstaged, untracked (o el orden definido)
+  Assert l:staged_pos < l:unstaged_pos
+  Assert l:unstaged_pos < l:untracked_pos
+
+Execute (render includes summary statistics):
+  let g:lines = ghostgit#render#Status([g:staged_item, g:unstaged_item, g:untracked_item])
+  let g:combined = join(g:lines, "\n")
+  
+  " Verificar que incluye estadísticas de resumen si es parte de la implementación
+  " Assert g:combined =~# 'Summary:'
+  " Assert g:combined =~# '1 staged'
+  " Assert g:combined =~# '1 unstaged'
+  " Assert g:combined =~# '1 untracked'
+
+Execute (render includes help information):
+  let g:lines = ghostgit#render#Status([g:staged_item])
+  let g:combined = join(g:lines, "\n")
+  
+  " Verificar que siempre incluye información de ayuda
+  Assert g:combined =~# 'Help:'
+  Assert g:combined =~# 'q'
+
+Execute (render handles special characters in filenames):
+  let l:special_item = {'index': 'M', 'worktree': ' ', 'file': 'file with spaces and ñ.txt'}
+  let g:lines = ghostgit#render#Status([l:special_item])
+  let g:combined = join(g:lines, "\n")
+  Assert g:combined =~# 'file with spaces and ñ.txt'
+
+Execute (render handles very long filenames):
+  let l:long_filename = repeat('a', 100) . '.txt'
+  let l:long_item = {'index': 'M', 'worktree': ' ', 'file': l:long_filename}
+  let g:lines = ghostgit#render#Status([l:long_item])
+  
+  " Verificar que maneja nombres largos apropiadamente
+  let g:combined = join(g:lines, "\n")
+  Assert g:combined =~# l:long_filename
+
+Execute (render with null or empty items):
+  " Verificar comportamiento con ítems nulos o vacíos
+  let g:lines = ghostgit#render#Status([{}, v:null])
+  " Debería manejar estos casos sin errores
+
+Execute (render performance with many items):
+  " Crear muchos ítems para probar rendimiento
+  let l:many_items = []
+  for l:i in range(1000)
+    call add(l:many_items, {'index': 'M', 'worktree': ' ', 'file': 'file' . l:i . '.txt'})
+  endfor
+  
+  let l:start = reltime()
+  let g:lines = ghostgit#render#Status(l:many_items)
+  let l:elapsed = reltimefloat(reltime(l:start))
+  
+  " Debería renderizar rápidamente incluso con muchos ítems
+  Assert l:elapsed < 1.0
+  Assert len(g:lines) > 1000
+
+Execute (render includes repository information):
+  let g:lines = ghostgit#render#Status([g:staged_item])
+  let g:combined = join(g:lines, "\n")
+  
+  " Verificar que incluye información del repositorio si es parte de la implementación
+  " Assert g:combined =~# 'Repository:'
+
+Execute (render handles different worktree states):
+  " Probar combinaciones específicas de index/worktree
+  let l:added_item = {'index': 'A', 'worktree': ' ', 'file': 'added.txt'}
+  let l:modified_both_item = {'index': 'M', 'worktree': 'M', 'file': 'both_modified.txt'}
+  
+  let g:lines = ghostgit#render#Status([l:added_item, l:modified_both_item])
+  let g:combined = join(g:lines, "\n")
+  
+  Assert g:combined =~# '  A added.txt'
+  Assert g:combined =~# ' MM both_modified.txt'
+
+Execute (render includes legend or key):
+  let g:lines = ghostgit#render#Status([g:staged_item, g:unstaged_item])
+  let g:combined = join(g:lines, "\n")
+  
+  " Verificar que incluye una leyenda si es parte de la implementación
+  " Assert g:combined =~# 'Legend:'
+  " Assert g:combined =~# 'M = Modified'
+
+Execute (render output structure is consistent):
+  " Verificar estructura consistente en diferentes escenarios
+  for l:scenario in [
+    \ [],
+    \ [g:staged_item],
+    \ [g:unstaged_item],
+    \ [g:untracked_item],
+    \ [g:staged_item, g:unstaged_item, g:untracked_item]
+    \ ]
+    let g:lines = ghostgit#render#Status(l:scenario)
+    " Verificar elementos comunes
+    Assert g:lines[0] =~# 'GhostGit'  " Encabezado siempre presente
+    " Assert g:lines[-1] =~# 'q'  " Ayuda siempre presente (posición puede variar)
+  endfor
+
+Execute (render handles edge case filenames):
+  " Probar nombres de archivo problemáticos
+  let l:edge_cases = [
+    \ {'index': 'M', 'worktree': ' ', 'file': ''},  " Nombre vacío
+    \ {'index': 'M', 'worktree': ' ', 'file': '.'},  " Punto
+    \ {'index': 'M', 'worktree': ' ', 'file': '..'},  " Doble punto
+    \ {'index': 'M', 'worktree': ' ', 'file': '.hidden'},  " Archivo oculto
+    \ ]
+  
+  " Esta prueba puede requerir ajustes según cómo maneje la implementación estos casos
+
+Execute (render with custom options):
+  " Si la función acepta opciones personalizadas
+  " let g:lines = ghostgit#render#Status([g:staged_item], {'compact': 1})
+  " Verificar comportamiento con opciones

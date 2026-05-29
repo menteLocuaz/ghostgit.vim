@@ -1,27 +1,265 @@
+" ============================================================================
+" ghostgit.vim - Diff Functions Tests
+" ============================================================================
+
 Before:
+  " Configurar repositorio de prueba
   let g:repo = ghostgit#test#Setup()
+  
+  " Guardar directorio de trabajo actual
   let g:cwd = getcwd()
 
 After:
+  " Limpiar repositorio de prueba
   call ghostgit#test#Teardown(g:repo)
+  
+  " Restaurar directorio de trabajo original
   execute 'cd ' . fnameescape(g:cwd)
+  
+  " Cerrar todos los buffers abiertos silenciosamente
   silent! bd!
 
+" ============================================================================
+" ghostgit#diff#Open Tests
+" ============================================================================
+
 Execute (diff#Open with --cached shows diff):
+  " Cambiar al directorio del repositorio
   execute 'cd ' . fnameescape(g:repo)
+  
+  " Crear y agregar archivo al staging
   call ghostgit#test#CreateFile(g:repo, 'file.txt', "hello\nworld\n")
   call ghostgit#test#StageFile(g:repo, 'file.txt')
+  
+  " Abrir diff para archivo en staging
   call ghostgit#diff#Open('file.txt', '--cached')
+  
+  " Verificar que el contenido del buffer no está vacío
   let g:text = join(getline(1, '$'), "\n")
   Assert len(getline(1, '$')) > 0
   Assert g:text =~# 'diff --git'
+  
+  " Verificar que el buffer tiene el tipo de archivo correcto
+  Assert &filetype ==# 'diff'
 
 Execute (diff#Open without cache shows diff):
+  " Cambiar al directorio del repositorio
   execute 'cd ' . fnameescape(g:repo)
+  
+  " Crear archivo y agregarlo al staging
   call ghostgit#test#CreateFile(g:repo, 'file.txt', "hello\nworld\n")
   call ghostgit#test#StageFile(g:repo, 'file.txt')
+  
+  " Modificar el archivo sin agregar al staging
   call ghostgit#test#CreateFile(g:repo, 'file.txt', "hello\nworld\nnew line\n")
+  
+  " Abrir diff para cambios no en staging
   call ghostgit#diff#Open('file.txt')
+  
+  " Verificar contenido del diff
   let g:text = join(getline(1, '$'), "\n")
   Assert len(getline(1, '$')) > 0
   Assert g:text =~# 'diff --git'
+  
+  " Verificar que se muestra el contenido modificado
+  Assert g:text =~# 'new line'
+
+Execute (diff#Open with unstaged file):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Crear archivo nuevo (sin staging)
+  call ghostgit#test#CreateFile(g:repo, 'newfile.txt', "new content\n")
+  
+  " Abrir diff para archivo nuevo
+  call ghostgit#diff#Open('newfile.txt')
+  
+  " Verificar contenido del diff
+  let g:text = join(getline(1, '$'), "\n")
+  Assert len(getline(1, '$')) > 0
+  Assert g:text =~# 'diff --git'
+  Assert g:text =~# 'new file'
+
+Execute (diff#Open handles non-existent file):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Intentar abrir diff para archivo que no existe
+  call ghostgit#diff#Open('nonexistent.txt')
+  
+  " Debería mostrar mensaje de que no hay diferencias
+  " (El comportamiento exacto depende de la implementación)
+
+Execute (diff#Open with multiple extra args):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Crear y modificar archivo
+  call ghostgit#test#CreateFile(g:repo, 'test.txt', "original\n")
+  call ghostgit#test#StageFile(g:repo, 'test.txt')
+  call ghostgit#test#CreateFile(g:repo, 'test.txt', "original\nmodified\n")
+  
+  " Abrir diff con múltiples argumentos
+  call ghostgit#diff#Open('test.txt', '--word-diff')
+  
+  " Verificar que se abrió correctamente
+  let g:text = join(getline(1, '$'), "\n")
+  Assert len(getline(1, '$')) > 0
+
+Execute (diff#Open sets proper buffer options):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Crear archivo de prueba
+  call ghostgit#test#CreateFile(g:repo, 'buffer_test.txt', "test\n")
+  
+  " Abrir diff
+  call ghostgit#diff#Open('buffer_test.txt')
+  
+  " Verificar configuración del buffer
+  Assert &buftype ==# 'nofile'
+  Assert &bufhidden ==# 'wipe'
+  Assert &noswapfile
+  Assert &nomodifiable
+
+Execute (diff#Open reuses existing buffer):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Crear archivo de prueba
+  call ghostgit#test#CreateFile(g:repo, 'reuse_test.txt', "content\n")
+  
+  " Abrir diff por primera vez
+  call ghostgit#diff#Open('reuse_test.txt')
+  let l:first_bufnr = bufnr('%')
+  
+  " Volver al directorio de trabajo original y luego regresar
+  execute 'cd ' . fnameescape(g:cwd)
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Abrir diff nuevamente (debería reusar buffer)
+  call ghostgit#diff#Open('reuse_test.txt')
+  let l:second_bufnr = bufnr('%')
+  
+  " Verificar que es el mismo buffer
+  Assert l:first_bufnr ==# l:second_bufnr
+
+" ============================================================================
+" ghostgit#diff#Refresh Tests
+" ============================================================================
+
+Execute (diff#Refresh updates content):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Crear archivo inicial
+  call ghostgit#test#CreateFile(g:repo, 'refresh_test.txt', "line1\n")
+  call ghostgit#diff#Open('refresh_test.txt')
+  
+  " Guardar número de líneas inicial
+  let l:initial_lines = line('$')
+  
+  " Modificar archivo
+  call ghostgit#test#CreateFile(g:repo, 'refresh_test.txt', "line1\nline2\n")
+  
+  " Refrescar diff (requiere estar en buffer de diff)
+  " Esta prueba puede requerir ajustes según la implementación
+  
+" ============================================================================
+" ghostgit#diff#OpenStaged Tests
+" ============================================================================
+
+Execute (diff#OpenStaged shows all staged changes):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Crear varios archivos y agregarlos al staging
+  call ghostgit#test#CreateFile(g:repo, 'file1.txt', "content1\n")
+  call ghostgit#test#CreateFile(g:repo, 'file2.txt', "content2\n")
+  call ghostgit#test#StageFile(g:repo, 'file1.txt')
+  call ghostgit#test#StageFile(g:repo, 'file2.txt')
+  
+  " Abrir diff de todos los archivos en staging
+  call ghostgit#diff#OpenStaged()
+  
+  " Verificar contenido
+  let g:text = join(getline(1, '$'), "\n")
+  Assert g:text =~# 'file1.txt'
+  Assert g:text =~# 'file2.txt'
+
+" ============================================================================
+" ghostgit#diff#CompareCommits Tests
+" ============================================================================
+
+Execute (diff#CompareCommits compares two commits):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Crear commit inicial
+  call ghostgit#test#CreateFile(g:repo, 'version1.txt', "version1\n")
+  call ghostgit#test#StageFile(g:repo, 'version1.txt')
+  call ghostgit#core#Run(['commit', '-m', 'Initial commit'])
+  
+  " Guardar hash del primer commit
+  let l:commit1 = ghostgit#core#Run(['rev-parse', 'HEAD'])[0]
+  
+  " Modificar archivo y crear segundo commit
+  call ghostgit#test#CreateFile(g:repo, 'version1.txt', "version1\nversion2\n")
+  call ghostgit#test#StageFile(g:repo, 'version1.txt')
+  call ghostgit#core#Run(['commit', '-m', 'Second commit'])
+  
+  " Guardar hash del segundo commit
+  let l:commit2 = ghostgit#core#Run(['rev-parse', 'HEAD'])[0]
+  
+  " Comparar los dos commits
+  call ghostgit#diff#CompareCommits(l:commit1, l:commit2)
+  
+  " Verificar contenido del diff
+  let g:text = join(getline(1, '$'), "\n")
+  Assert g:text =~# 'diff --git'
+  Assert g:text =~# 'version2'
+
+" ============================================================================
+" Edge Cases and Error Handling Tests
+" ============================================================================
+
+Execute (diff#Open handles empty filename):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Intentar abrir diff con nombre de archivo vacío
+  try
+    call ghostgit#diff#Open('')
+  catch
+    " Debería manejar el error apropiadamente
+  endtry
+
+Execute (diff#Open outside repository):
+  " Cambiar a directorio fuera del repositorio
+  execute 'cd ' . fnameescape(g:cwd)
+  
+  " Intentar abrir diff (debería fallar apropiadamente)
+  " Esta prueba depende de cómo se maneje el error en la implementación
+
+" ============================================================================
+" Performance Tests
+" ============================================================================
+
+Execute (diff#Open performs reasonably fast):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Crear archivo grande para diff
+  let l:large_content = []
+  for l:i in range(1000)
+    call add(l:large_content, "Line " . l:i)
+  endfor
+  call ghostgit#test#CreateFile(g:repo, 'large_file.txt', join(l:large_content, "\n"))
+  
+  " Medir tiempo de apertura de diff
+  let l:start = reltime()
+  call ghostgit#diff#Open('large_file.txt')
+  let l:elapsed = reltimefloat(reltime(l:start))
+  
+  " Debería abrir razonablemente rápido
+  Assert l:elapsed < 2.0

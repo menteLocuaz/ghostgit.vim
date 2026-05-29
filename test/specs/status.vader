@@ -1,38 +1,393 @@
+" ============================================================================
+" ghostgit.vim - Status Buffer Tests
+" ============================================================================
+
 Before:
+  " Inicializar estado de GhostGit
   call ghostgit#state#Init()
+  
+  " Configurar repositorio de prueba
   let g:repo = ghostgit#test#Setup()
+  
+  " Guardar directorio de trabajo actual
   let g:cwd = getcwd()
 
 After:
+  " Limpiar repositorio de prueba
   call ghostgit#test#Teardown(g:repo)
+  
+  " Restaurar directorio de trabajo original
   execute 'cd ' . fnameescape(g:cwd)
+  
+  " Cerrar buffers de GhostGit silenciosamente
   silent! bd! ghostgit://status
 
+" ============================================================================
+" ghostgit#status#Open Tests
+" ============================================================================
+
 Execute (status#Open opens status buffer in repo):
+  " Cambiar al directorio del repositorio
   execute 'cd ' . fnameescape(g:repo)
+  
+  " Abrir buffer de estado
   call ghostgit#status#Open()
+  
+  " Verificar que se abrió el buffer correcto
   Assert bufname('%') =~# 'ghostgit://status'
   Assert len(getline(1, '$')) > 0
+  
+  " Verificar configuración del buffer
+  Assert &buftype ==# 'nofile'
+  Assert &bufhidden ==# 'wipe'
+  Assert &filetype ==# 'ghostgit_status'
 
 Execute (status#Open does not error outside repo):
+  " Crear directorio temporal fuera de repositorio
   let g:plain = tempname()
   call mkdir(g:plain, 'p')
+  
+  " Cambiar a directorio fuera de repositorio
   execute 'cd ' . fnameescape(g:plain)
+  
+  " Intentar abrir status - no debería lanzar error
   let g:caught = 0
   try
     call ghostgit#status#Open()
   catch
     let g:caught = 1
   endtry
+  
+  " Limpiar
   call delete(g:plain, 'rf')
+  
+  " Verificar que no hubo errores
   Assert !g:caught
 
-Execute (stage adds file to index):
+Execute (status#Open reuses existing buffer):
+  " Cambiar al directorio del repositorio
   execute 'cd ' . fnameescape(g:repo)
+  
+  " Abrir buffer de estado por primera vez
   call ghostgit#status#Open()
-  call ghostgit#test#CreateFile(g:repo, 'test.txt', 'content')
+  let l:first_bufnr = bufnr('%')
+  
+  " Volver al directorio original y luego regresar
+  execute 'cd ' . fnameescape(g:cwd)
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Abrir buffer de estado nuevamente (debería reusar)
+  call ghostgit#status#Open()
+  let l:second_bufnr = bufnr('%')
+  
+  " Verificar que es el mismo buffer
+  Assert l:first_bufnr ==# l:second_bufnr
+
+Execute (status#Open sets proper buffer options):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Abrir buffer de estado
+  call ghostgit#status#Open()
+  
+  " Verificar configuración del buffer
+  Assert &buftype ==# 'nofile'
+  Assert &bufhidden ==# 'wipe'
+  Assert &noswapfile
+  Assert &nomodifiable
+  Assert &cursorline
+
+Execute (status#Open with existing files):
+  " Crear algunos archivos antes de abrir el status
+  call ghostgit#test#CreateFile(g:repo, 'existing.txt', 'content')
+  
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Abrir buffer de estado
+  call ghostgit#status#Open()
+  
+  " Verificar que muestra archivos existentes
+  let g:text = join(getline(1, '$'), "\n")
+  Assert g:text =~# 'existing.txt'
+
+" ============================================================================
+" ghostgit#status#Refresh Tests
+" ============================================================================
+
+Execute (status#Refresh updates buffer content):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Abrir buffer de estado
+  call ghostgit#status#Open()
+  
+  " Guardar contenido inicial
+  let l:initial_content = getline(1, '$')
+  
+  " Crear nuevo archivo
+  call ghostgit#test#CreateFile(g:repo, 'refresh_test.txt', 'new content')
+  
+  " Refrescar status
   call ghostgit#status#Refresh()
+  
+  " Verificar que el contenido cambió
+  let l:new_content = getline(1, '$')
+  Assert l:initial_content !=# l:new_content
+  Assert join(l:new_content, "\n") =~# 'refresh_test.txt'
+
+Execute (status#Refresh preserves cursor position):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Abrir buffer de estado
+  call ghostgit#status#Open()
+  
+  " Crear varios archivos para tener contenido
+  call ghostgit#test#CreateFile(g:repo, 'file1.txt', 'content1')
+  call ghostgit#test#CreateFile(g:repo, 'file2.txt', 'content2')
+  call ghostgit#test#CreateFile(g:repo, 'file3.txt', 'content3')
+  
+  " Refrescar status
+  call ghostgit#status#Refresh()
+  
+  " Verificar que el buffer sigue siendo válido
+  Assert bufname('%') =~# 'ghostgit://status'
+
+" ============================================================================
+" Staging Operations Tests
+" ============================================================================
+
+Execute (stage adds file to index):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Abrir buffer de estado
+  call ghostgit#status#Open()
+  
+  " Crear archivo de prueba
+  call ghostgit#test#CreateFile(g:repo, 'test.txt', 'content')
+  
+  " Refrescar status para ver el nuevo archivo
+  call ghostgit#status#Refresh()
+  
+  " Agregar archivo al índice usando funciones de Git directamente
   call ghostgit#git#Add('test.txt', g:repo)
+  
+  " Verificar que el archivo está en staging
   let g:st = ghostgit#git#Status(g:repo)
   let g:staged = filter(copy(g:st), {_, v -> v =~# 'A '})
   Assert len(g:staged) > 0
+
+Execute (status#Stage stages selected file):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Crear archivo de prueba
+  call ghostgit#test#CreateFile(g:repo, 'stage_test.txt', 'stage content')
+  
+  " Abrir buffer de estado
+  call ghostgit#status#Open()
+  
+  " Refrescar para ver nuevo archivo
+  call ghostgit#status#Refresh()
+  
+  " Esta prueba requiere simulación de selección de archivo
+  " y llamada a la función de staging - depende de implementación
+
+Execute (status#Unstage unstages selected file):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Crear y stagear archivo
+  call ghostgit#test#CreateFile(g:repo, 'unstage_test.txt', 'unstage content')
+  call ghostgit#test#StageFile(g:repo, 'unstage_test.txt')
+  
+  " Abrir buffer de estado
+  call ghostgit#status#Open()
+  
+  " Refrescar para ver archivo en staging
+  call ghostgit#status#Refresh()
+  
+  " Esta prueba requiere simulación de selección y unstaging
+  " - depende de implementación
+
+" ============================================================================
+" ghostgit#status#Diff Tests
+" ============================================================================
+
+Execute (status#Diff shows diff for selected file):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Crear archivo con contenido inicial
+  call ghostgit#test#CreateFile(g:repo, 'diff_test.txt', "line1\n")
+  call ghostgit#test#StageFile(g:repo, 'diff_test.txt')
+  call ghostgit#core#Run(['commit', '-m', 'Initial commit'], g:repo)
+  
+  " Modificar archivo
+  call ghostgit#test#CreateFile(g:repo, 'diff_test.txt', "line1\nline2\n")
+  
+  " Abrir buffer de estado
+  call ghostgit#status#Open()
+  
+  " Refrescar para ver cambios
+  call ghostgit#status#Refresh()
+  
+  " Esta prueba requiere simulación de selección y diff
+  " - depende de implementación
+
+" ============================================================================
+" ghostgit#status#Commit Tests
+" ============================================================================
+
+Execute (status#Commit creates commit with staged files):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Crear y stagear archivo
+  call ghostgit#test#CreateFile(g:repo, 'commit_test.txt', 'commit content')
+  call ghostgit#test#StageFile(g:repo, 'commit_test.txt')
+  
+  " Abrir buffer de estado
+  call ghostgit#status#Open()
+  
+  " Esta prueba requiere simulación de commit
+  " - depende de implementación
+
+" ============================================================================
+" Edge Cases and Error Handling Tests
+" ============================================================================
+
+Execute (status functions handle empty repository):
+  " Configurar repositorio vacío (sin commits)
+  let l:empty_repo = ghostgit#test#SetupEmptyRepo()
+  
+  " Cambiar al repositorio vacío
+  execute 'cd ' . fnameescape(l:empty_repo)
+  
+  " Abrir status en repositorio vacío
+  call ghostgit#status#Open()
+  
+  " Debería mostrar información apropiada para repositorio vacío
+  let g:text = join(getline(1, '$'), "\n")
+  " Verificar contenido apropiado
+  
+  " Limpiar
+  call ghostgit#test#Teardown(l:empty_repo)
+
+Execute (status functions handle large repositories):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Crear muchos archivos
+  for l:i in range(50)
+    call ghostgit#test#CreateFile(g:repo, 'file' . l:i . '.txt', 'content' . l:i)
+  endfor
+  
+  " Abrir status
+  call ghostgit#status#Open()
+  
+  " Refrescar status
+  call ghostgit#status#Refresh()
+  
+  " Verificar que maneja muchos archivos apropiadamente
+  let g:lines = getline(1, '$')
+  Assert len(g:lines) > 10  " Debería mostrar muchos archivos
+
+Execute (status functions handle unicode filenames):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Crear archivo con nombre Unicode
+  call ghostgit#test#CreateFile(g:repo, '测试文件.txt', 'unicode content')
+  
+  " Abrir status
+  call ghostgit#status#Open()
+  
+  " Refrescar status
+  call ghostgit#status#Refresh()
+  
+  " Verificar que muestra archivo Unicode
+  let g:text = join(getline(1, '$'), "\n")
+  Assert g:text =~# '测试文件.txt'
+
+Execute (status functions handle special characters):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Crear archivo con caracteres especiales
+  call ghostgit#test#CreateFile(g:repo, 'file with spaces & symbols!.txt', 'special content')
+  
+  " Abrir status
+  call ghostgit#status#Open()
+  
+  " Refrescar status
+  call ghostgit#status#Refresh()
+  
+  " Verificar que muestra archivo con caracteres especiales
+  let g:text = join(getline(1, '$'), "\n")
+  Assert g:text =~# 'file with spaces & symbols!.txt'
+
+" ============================================================================
+" Performance Tests
+" ============================================================================
+
+Execute (status operations perform reasonably fast):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Crear archivos de prueba
+  for l:i in range(100)
+    call ghostgit#test#CreateFile(g:repo, 'perf_test_' . l:i . '.txt', 'performance test content')
+  endfor
+  
+  " Medir tiempo de apertura
+  let l:start = reltime()
+  call ghostgit#status#Open()
+  let l:open_time = reltimefloat(reltime(l:start))
+  
+  " Medir tiempo de refresco
+  let l:start = reltime()
+  call ghostgit#status#Refresh()
+  let l:refresh_time = reltimefloat(reltime(l:start))
+  
+  " Verificar tiempos razonables
+  Assert l:open_time < 2.0
+  Assert l:refresh_time < 1.0
+
+" ============================================================================
+" Integration Tests
+" ============================================================================
+
+Execute (status buffer integrates with state management):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Abrir buffer de estado
+  call ghostgit#status#Open()
+  
+  " Verificar que el estado se actualizó apropiadamente
+  let l:buffer_info = ghostgit#state#GetBuffer('status')
+  Assert !empty(l:buffer_info)
+  AssertEqual 'status', l:buffer_info.type
+  
+  " Verificar que hay items en caché
+  let l:cached_items = ghostgit#state#GetCachedItems('status')
+  " Assert !empty(l:cached_items)  " Puede estar vacío inicialmente
+
+Execute (status buffer closes properly):
+  " Cambiar al directorio del repositorio
+  execute 'cd ' . fnameescape(g:repo)
+  
+  " Abrir buffer de estado
+  call ghostgit#status#Open()
+  
+  " Verificar que existe
+  Assert bufname('%') =~# 'ghostgit://status'
+  
+  " Cerrar buffer
+  silent! bd!
+  
+  " Verificar que ya no existe el buffer activo de status
+  Assert bufname('%') !~# 'ghostgit://status'

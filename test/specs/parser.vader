@@ -1,26 +1,88 @@
+" ============================================================================
+" ghostgit.vim - Parser Tests
+" ============================================================================
+
+" ============================================================================
+" ghostgit#parser#ParseStatusLine Tests
+" ============================================================================
+
 Execute (ParseStatusLine parses staged line):
   let g:item = ghostgit#parser#ParseStatusLine('M  foo.txt')
   Assert g:item.index ==# 'M'
   Assert g:item.worktree ==# ' '
   Assert g:item.file ==# 'foo.txt'
+  Assert g:item.type ==# 'file_change'
 
 Execute (ParseStatusLine parses unstaged line):
   let g:item = ghostgit#parser#ParseStatusLine(' M foo.txt')
   Assert g:item.index ==# ' '
   Assert g:item.worktree ==# 'M'
   Assert g:item.file ==# 'foo.txt'
+  Assert g:item.type ==# 'file_change'
 
 Execute (ParseStatusLine parses untracked line):
   let g:item = ghostgit#parser#ParseStatusLine('?? foo.txt')
   Assert g:item.index ==# '?'
   Assert g:item.worktree ==# '?'
   Assert g:item.file ==# 'foo.txt'
+  Assert g:item.type ==# 'file_change'
 
 Execute (ParseStatusLine parses both modified line):
   let g:item = ghostgit#parser#ParseStatusLine('MM foo.txt')
   Assert g:item.index ==# 'M'
   Assert g:item.worktree ==# 'M'
   Assert g:item.file ==# 'foo.txt'
+  Assert g:item.type ==# 'file_change'
+
+Execute (ParseStatusLine parses renamed file):
+  let g:item = ghostgit#parser#ParseStatusLine('R  old.txt -> new.txt')
+  Assert g:item.index ==# 'R'
+  Assert g:item.worktree ==# ' '
+  Assert g:item.file ==# 'new.txt'
+  Assert g:item.original_file ==# 'old.txt'
+  Assert g:item.type ==# 'file_change'
+
+Execute (ParseStatusLine parses copied file):
+  let g:item = ghostgit#parser#ParseStatusLine('C  original.txt -> copy.txt')
+  Assert g:item.index ==# 'C'
+  Assert g:item.worktree ==# ' '
+  Assert g:item.file ==# 'copy.txt'
+  Assert g:item.original_file ==# 'original.txt'
+  Assert g:item.type ==# 'file_change'
+
+Execute (ParseStatusLine parses deleted file):
+  let g:item = ghostgit#parser#ParseStatusLine(' D deleted.txt')
+  Assert g:item.index ==# ' '
+  Assert g:item.worktree ==# 'D'
+  Assert g:item.file ==# 'deleted.txt'
+  Assert g:item.type ==# 'file_change'
+
+Execute (ParseStatusLine handles empty input):
+  let g:item = ghostgit#parser#ParseStatusLine('')
+  Assert empty(g:item)
+
+Execute (ParseStatusLine handles malformed line):
+  let g:item = ghostgit#parser#ParseStatusLine('invalid line')
+  Assert !empty(g:item)
+  Assert g:item.type ==# 'unknown'
+  Assert g:item.raw ==# 'invalid line'
+
+Execute (ParseStatusLine parses branch info):
+  let g:item = ghostgit#parser#ParseStatusLine('# branch.oid abcdef1234567890abcdef1234567890abcdef12')
+  Assert g:item.type ==# 'unknown'  " Esta línea requiere tratamiento especial
+  
+  let g:item2 = ghostgit#parser#ParseStatusLine('# branch.head main')
+  " Verificar si la función maneja correctamente la información de rama
+
+Execute (ParseStatusLine with whitespace in filename):
+  let g:item = ghostgit#parser#ParseStatusLine('M  file with spaces.txt')
+  Assert g:item.index ==# 'M'
+  Assert g:item.worktree ==# ' '
+  Assert g:item.file ==# 'file with spaces.txt'
+
+" ============================================================================
+" ghostgit#parser#Classify Tests
+" ============================================================================
 
 Execute (Classify returns staged):
   Assert ghostgit#parser#Classify({'index': 'M', 'worktree': ' ', 'file': 'f'}) ==# 'staged'
@@ -33,3 +95,194 @@ Execute (Classify returns untracked):
 
 Execute (Classify returns unmodified):
   Assert ghostgit#parser#Classify({'index': ' ', 'worktree': ' ', 'file': 'f'}) ==# 'unmodified'
+
+Execute (Classify returns conflicted - index U):
+  Assert ghostgit#parser#Classify({'index': 'U', 'worktree': ' ', 'file': 'f'}) ==# 'conflicted'
+
+Execute (Classify returns conflicted - worktree U):
+  Assert ghostgit#parser#Classify({'index': ' ', 'worktree': 'U', 'file': 'f'}) ==# 'conflicted'
+
+Execute (Classify returns conflicted - both added):
+  Assert ghostgit#parser#Classify({'index': 'A', 'worktree': 'A', 'file': 'f'}) ==# 'conflicted'
+
+Execute (Classify returns conflicted - both deleted):
+  Assert ghostgit#parser#Classify({'index': 'D', 'worktree': 'D', 'file': 'f'}) ==# 'conflicted'
+
+Execute (Classify handles renamed file):
+  Assert ghostgit#parser#Classify({'index': 'R', 'worktree': ' ', 'file': 'f'}) ==# 'staged'
+
+Execute (Classify handles copied file):
+  Assert ghostgit#parser#Classify({'index': 'C', 'worktree': ' ', 'file': 'f'}) ==# 'staged'
+
+Execute (Classify handles deleted file - staged):
+  Assert ghostgit#parser#Classify({'index': 'D', 'worktree': ' ', 'file': 'f'}) ==# 'staged'
+
+Execute (Classify handles deleted file - unstaged):
+  Assert ghostgit#parser#Classify({'index': ' ', 'worktree': 'D', 'file': 'f'}) ==# 'unstaged'
+
+Execute (Classify handles empty item):
+  Assert ghostgit#parser#Classify({}) ==# 'unknown'
+
+Execute (Classify handles branch info):
+  Assert ghostgit#parser#Classify({'type': 'branch_info'}) ==# 'branch_info'
+
+Execute (Classify handles unknown type):
+  Assert ghostgit#parser#Classify({'type': 'unknown', 'raw': 'test'}) ==# 'unknown'
+
+" ============================================================================
+" ghostgit#parser#ParseStatusOutput Tests
+" ============================================================================
+
+Execute (ParseStatusOutput parses multiple lines):
+  let l:lines = [
+    \ '## main',
+    \ ' M modified.txt',
+    \ 'A  added.txt',
+    \ '?? untracked.txt'
+    \ ]
+  let g:result = ghostgit#parser#ParseStatusOutput(l:lines)
+  Assert g:result.branch ==# 'main'
+  Assert len(g:result.items) ==# 3
+
+Execute (ParseStatusOutput handles empty input):
+  let g:result = ghostgit#parser#ParseStatusOutput([])
+  Assert g:result.branch ==# ''
+  Assert len(g:result.items) ==# 0
+
+Execute (ParseStatusOutput with complex scenario):
+  let l:lines = [
+    \ '# branch.oid abcdef1234567890abcdef1234567890abcdef12',
+    \ '# branch.head feature-branch',
+    \ '# branch.upstream origin/feature-branch',
+    \ '# branch.ab +2 -1',
+    \ '',
+    \ ' M modified.txt',
+    \ 'A  added.txt',
+    \ 'D  deleted.txt',
+    \ '?? untracked.txt',
+    \ 'UU conflicted.txt',
+    \ 'R  old_name.txt -> new_name.txt'
+    \ ]
+  let g:result = ghostgit#parser#ParseStatusOutput(l:lines)
+  Assert g:result.branch ==# 'feature-branch'
+  Assert len(g:result.items) ==# 6
+
+" ============================================================================
+" ghostgit#parser#GetStatusDescription Tests
+" ============================================================================
+
+Execute (GetStatusDescription for staged file):
+  let l:item = {'index': 'M', 'worktree': ' ', 'file': 'test.txt'}
+  let g:description = ghostgit#parser#GetStatusDescription(l:item)
+  Assert g:description ==# 'Modified (staged)'
+
+Execute (GetStatusDescription for unstaged file):
+  let l:item = {'index': ' ', 'worktree': 'M', 'file': 'test.txt'}
+  let g:description = ghostgit#parser#GetStatusDescription(l:item)
+  Assert g:description ==# 'Modified (not staged)'
+
+Execute (GetStatusDescription for untracked file):
+  let l:item = {'index': '?', 'worktree': '?', 'file': 'test.txt'}
+  let g:description = ghostgit#parser#GetStatusDescription(l:item)
+  Assert g:description ==# 'Untracked file'
+
+Execute (GetStatusDescription for conflicted file):
+  let l:item = {'index': 'U', 'worktree': ' ', 'file': 'test.txt'}
+  let g:description = ghostgit#parser#GetStatusDescription(l:item)
+  Assert g:description ==# 'Unresolved conflict'
+
+Execute (GetStatusDescription for unmodified file):
+  let l:item = {'index': ' ', 'worktree': ' ', 'file': 'test.txt'}
+  let g:description = ghostgit#parser#GetStatusDescription(l:item)
+  Assert g:description ==# 'Unmodified'
+
+Execute (GetStatusDescription handles empty item):
+  let g:description = ghostgit#parser#GetStatusDescription({})
+  Assert g:description ==# 'Unknown'
+
+" ============================================================================
+" ghostgit#parser#ParseBranchInfo Tests
+" ============================================================================
+
+Execute (ParseBranchInfo handles current branch):
+  let g:result = ghostgit#parser#ParseBranchInfo('# branch.head main')
+  Assert g:result.type ==# 'current_branch'
+  Assert g:result.branch ==# 'main'
+
+Execute (ParseBranchInfo handles upstream branch):
+  let g:result = ghostgit#parser#ParseBranchInfo('# branch.upstream origin/main')
+  Assert g:result.type ==# 'upstream_branch'
+  Assert g:result.upstream ==# 'origin/main'
+
+Execute (ParseBranchInfo handles ahead/behind info):
+  let g:result = ghostgit#parser#ParseBranchInfo('# branch.ab +2 -1')
+  Assert g:result.type ==# 'branch_ab'
+  Assert g:result.ahead ==# 2
+  Assert g:result.behind ==# 1
+
+Execute (ParseBranchInfo handles empty input):
+  let g:result = ghostgit#parser#ParseBranchInfo('')
+  Assert empty(g:result)
+
+Execute (ParseBranchInfo handles invalid input):
+  let g:result = ghostgit#parser#ParseBranchInfo('invalid line')
+  Assert empty(g:result)
+
+" ============================================================================
+" Edge Cases and Error Handling Tests
+" ============================================================================
+
+Execute (Parser handles unicode filenames):
+  let g:item = ghostgit#parser#ParseStatusLine('M  文件.txt')
+  Assert g:item.index ==# 'M'
+  Assert g:item.file ==# '文件.txt'
+
+Execute (Parser handles very long filenames):
+  let l:long_filename = repeat('a', 200) . '.txt'
+  let g:item = ghostgit#parser#ParseStatusLine('M  ' . l:long_filename)
+  Assert g:item.index ==# 'M'
+  Assert g:item.file ==# l:long_filename
+
+Execute (Parser functions handle null values):
+  " Estas pruebas verifican que las funciones no fallen con valores null/indefinidos
+  try
+    let g:result1 = ghostgit#parser#ParseStatusLine(v:null)
+    let g:result2 = ghostgit#parser#Classify(v:null)
+    let g:result3 = ghostgit#parser#ParseStatusOutput(v:null)
+  catch
+    " Las funciones deben manejar estos casos apropiadamente
+  endtry
+
+" ============================================================================
+" Performance Tests
+" ============================================================================
+
+Execute (Parser functions perform reasonably fast):
+  " Crear datos de prueba
+  let l:test_lines = []
+  for l:i in range(100)
+    call add(l:test_lines, 'M  file' . l:i . '.txt')
+  endfor
+  
+  " Medir tiempo de ParseStatusOutput
+  let l:start = reltime()
+  for l:i in range(50)
+    let g:dummy = ghostgit#parser#ParseStatusOutput(l:test_lines)
+  endfor
+  let l:elapsed = reltimefloat(reltime(l:start))
+  Assert l:elapsed < 1.0  " Debería ser rápido incluso con muchos archivos
+
+Execute (Classification is fast for large datasets):
+  " Crear muchos ítems para clasificar
+  let l:test_items = []
+  for l:i in range(1000)
+    call add(l:test_items, {'index': 'M', 'worktree': ' ', 'file': 'test' . l:i . '.txt'})
+  endfor
+  
+  " Medir tiempo de clasificación
+  let l:start = reltime()
+  for l:item in l:test_items
+    let g:dummy = ghostgit#parser#Classify(l:item)
+  endfor
+  let l:elapsed = reltimefloat(reltime(l:start))
+  Assert l:elapsed < 1.0  " Debería manejar grandes cantidades eficientemente

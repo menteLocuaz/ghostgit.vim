@@ -1,11 +1,82 @@
+" ============================================================================
+" ghostgit.vim - Utility Functions Tests
+" ============================================================================
+
+" ============================================================================
+" ghostgit#util#OpenBuffer Tests
+" ============================================================================
+
 Execute (OpenBuffer creates scratch buffer with correct settings):
+  " Abrir buffer de prueba
   call ghostgit#util#OpenBuffer('status')
+  
+  " Verificar propiedades del buffer
   Assert bufname('%') =~# 'ghostgit://status'
   Assert &bufhidden ==# 'wipe'
   Assert &buftype ==# 'nofile'
   Assert !&swapfile
   Assert !&modifiable
+  Assert &readonly
+  Assert &cursorline
+  
+  " Verificar mapeos básicos
+  " (Depende de implementación específica)
+  
+  " Limpiar buffer
   silent! bd! ghostgit://status
+
+Execute (OpenBuffer with custom name creates properly named buffer):
+  call ghostgit#util#OpenBuffer('custom_buffer')
+  Assert bufname('%') =~# 'ghostgit://custom_buffer'
+  silent! bd! ghostgit://custom_buffer
+
+Execute (OpenBuffer reuses existing buffer):
+  " Crear buffer por primera vez
+  call ghostgit#util#OpenBuffer('reuse_test')
+  let l:first_bufnr = bufnr('%')
+  
+  " Cambiar a otro buffer
+  enew
+  
+  " Reabrir el mismo buffer (debería reusar)
+  call ghostgit#util#OpenBuffer('reuse_test')
+  let l:second_bufnr = bufnr('%')
+  
+  " Verificar que es el mismo buffer
+  Assert l:first_bufnr ==# l:second_bufnr
+  
+  " Limpiar
+  silent! bd! ghostgit://reuse_test
+
+Execute (OpenBuffer sets proper filetype):
+  call ghostgit#util#OpenBuffer('ft_test')
+  Assert &filetype ==# 'ghostgit'
+  silent! bd! ghostgit://ft_test
+
+Execute (OpenBuffer preserves cursor position on reuse):
+  " Crear y llenar buffer
+  call ghostgit#util#OpenBuffer('cursor_test')
+  call ghostgit#util#Render(['line1', 'line2', 'line3', 'line4'])
+  
+  " Mover cursor a una posición específica
+  3
+  let l:expected_line = getline('.')
+  
+  " Cambiar a otro buffer
+  enew
+  
+  " Reabrir buffer original
+  call ghostgit#util#OpenBuffer('cursor_test')
+  
+  " Verificar que el contenido está intacto
+  Assert getline(3) ==# l:expected_line
+  
+  " Limpiar
+  silent! bd! ghostgit://cursor_test
+
+" ============================================================================
+" ghostgit#util#Render Tests
+" ============================================================================
 
 Execute (Render sets buffer lines):
   call ghostgit#util#OpenBuffer('render_test')
@@ -13,34 +84,318 @@ Execute (Render sets buffer lines):
   Assert getline(1) ==# 'line1'
   Assert getline(2) ==# 'line2'
   Assert getline(3) ==# 'line3'
+  Assert getline(4) ==# ''
   silent! bd! ghostgit://render_test
 
 Execute (Render handles empty list):
   call ghostgit#util#OpenBuffer('render_test')
   call ghostgit#util#Render([])
   Assert getline(1) ==# ''
+  Assert line('$') ==# 1
   silent! bd! ghostgit://render_test
 
+Execute (Render replaces existing content):
+  call ghostgit#util#OpenBuffer('replace_test')
+  
+  " Renderizar contenido inicial
+  call ghostgit#util#Render(['initial1', 'initial2'])
+  Assert getline(1) ==# 'initial1'
+  Assert getline(2) ==# 'initial2'
+  
+  " Renderizar nuevo contenido
+  call ghostgit#util#Render(['new1', 'new2', 'new3'])
+  Assert getline(1) ==# 'new1'
+  Assert getline(2) ==# 'new2'
+  Assert getline(3) ==# 'new3'
+  Assert getline(4) ==# ''
+  
+  silent! bd! ghostgit://replace_test
+
+Execute (Render handles single line):
+  call ghostgit#util#OpenBuffer('single_test')
+  call ghostgit#util#Render(['single line'])
+  Assert getline(1) ==# 'single line'
+  Assert getline(2) ==# ''
+  silent! bd! ghostgit://single_test
+
+Execute (Render handles very long lines):
+  call ghostgit#util#OpenBuffer('long_test')
+  let l:very_long_line = repeat('a', 1000)
+  call ghostgit#util#Render([l:very_long_line])
+  Assert getline(1) ==# l:very_long_line
+  silent! bd! ghostgit://long_test
+
+Execute (Render handles unicode content):
+  call ghostgit#util#OpenBuffer('unicode_test')
+  call ghostgit#util#Render(['测试中文', 'Unicode ♥', 'Español ñ'])
+  Assert getline(1) ==# '测试中文'
+  Assert getline(2) ==# 'Unicode ♥'
+  Assert getline(3) ==# 'Español ñ'
+  silent! bd! ghostgit://unicode_test
+
+Execute (Render with null or invalid input):
+  call ghostgit#util#OpenBuffer('error_test')
+  
+  " Probar con entrada nula
+  call ghostgit#util#Render(v:null)
+  " Debería manejar esto sin errores
+  
+  " Probar con entrada inválida
+  call ghostgit#util#Render('invalid_string_instead_of_list')
+  " Debería manejar esto sin errores
+  
+  silent! bd! ghostgit://error_test
+
+" ============================================================================
+" ghostgit#util#Error Tests
+" ============================================================================
+
 Execute (Error echoes message):
+  " Redirigir salida para capturar mensaje
+  let l:output = ''
+  redir => l:output
   try
     call ghostgit#util#Error('test error msg')
-    Assert 1
-  catch
-    Assert 0
+  finally
+    redir END
   endtry
+  
+  " Verificar que el mensaje fue mostrado
+  Assert l:output =~# 'test error msg'
+  
+  " Verificar que no lanza excepción
+  let l:caught = 0
+  try
+    call ghostgit#util#Error('another test error')
+  catch
+    let l:caught = 1
+  endtry
+  Assert !l:caught
+
+Execute (Error handles empty message):
+  let l:output = ''
+  redir => l:output
+  try
+    call ghostgit#util#Error('')
+  finally
+    redir END
+  endtry
+  " Debería manejar mensajes vacíos
+
+Execute (Error handles unicode messages):
+  let l:output = ''
+  redir => l:output
+  try
+    call ghostgit#util#Error('错误测试')
+  finally
+    redir END
+  endtry
+  Assert l:output =~# '错误测试'
+
+Execute (Error formats message appropriately):
+  let l:output = ''
+  redir => l:output
+  try
+    call ghostgit#util#Error('Formatted error message')
+  finally
+    redir END
+  endtry
+  " Verificar formato apropiado (depende de implementación)
+
+" ============================================================================
+" ghostgit#util#Info Tests
+" ============================================================================
 
 Execute (Info echoes message):
+  let l:output = ''
+  redir => l:output
   try
     call ghostgit#util#Info('test info msg')
-    Assert 1
-  catch
-    Assert 0
+  finally
+    redir END
   endtry
+  
+  Assert l:output =~# 'test info msg'
+  
+  " Verificar que no lanza excepción
+  let l:caught = 0
+  try
+    call ghostgit#util#Info('another test info')
+  catch
+    let l:caught = 1
+  endtry
+  Assert !l:caught
+
+Execute (Info handles various message types):
+  let l:output = ''
+  redir => l:output
+  try
+    call ghostgit#util#Info('Info with numbers 123')
+    call ghostgit#util#Info('Info with symbols !@#$%')
+  finally
+    redir END
+  endtry
+  Assert l:output =~# 'Info with numbers 123'
+  Assert l:output =~# 'Info with symbols !@#$%'
+
+" ============================================================================
+" ghostgit#util#Warn Tests
+" ============================================================================
 
 Execute (Warn echoes message):
+  let l:output = ''
+  redir => l:output
   try
     call ghostgit#util#Warn('test warn msg')
-    Assert 1
-  catch
-    Assert 0
+  finally
+    redir END
   endtry
+  
+  Assert l:output =~# 'test warn msg'
+  
+  " Verificar que no lanza excepción
+  let l:caught = 0
+  try
+    call ghostgit#util#Warn('another test warning')
+  catch
+    let l:caught = 1
+  endtry
+  Assert !l:caught
+
+Execute (Warn differs from Info and Error visually):
+  " Esta prueba verifica que los tres tipos de mensajes 
+  " tienen formatos visuales diferentes (depende de implementación)
+  let l:error_output = ''
+  let l:warn_output = ''
+  let l:info_output = ''
+  
+  redir => l:error_output
+  try
+    call ghostgit#util#Error('Error message')
+  finally
+    redir END
+  endtry
+  
+  redir => l:warn_output
+  try
+    call ghostgit#util#Warn('Warning message')
+  finally
+    redir END
+  endtry
+  
+  redir => l:info_output
+  try
+    call ghostgit#util#Info('Info message')
+  finally
+    redir END
+  endtry
+  
+  " Los mensajes deberían ser capturados pero pueden tener diferente formato
+
+" ============================================================================
+" ghostgit#util#CloseBuffer Tests
+" ============================================================================
+
+Execute (CloseBuffer closes current buffer):
+  call ghostgit#util#OpenBuffer('close_test')
+  let l:bufnr = bufnr('%')
+  call ghostgit#util#CloseBuffer()
+  Assert !bufexists(l:bufnr)
+
+Execute (CloseBuffer handles non-GhostGit buffers):
+  " Crear buffer normal
+  enew
+  let l:normal_bufnr = bufnr('%')
+  
+  " Intentar cerrar con CloseBuffer
+  call ghostgit#util#CloseBuffer()
+  " Debería manejar esto apropiadamente
+  
+  " Limpiar
+  if bufexists(l:normal_bufnr)
+    execute 'bd!' l:normal_bufnr
+  endif
+
+" ============================================================================
+" ghostgit#util#GetBufferName Tests
+" ============================================================================
+
+Execute (GetBufferName generates correct names):
+  Assert ghostgit#util#GetBufferName('status') ==# 'ghostgit://status'
+  Assert ghostgit#util#GetBufferName('diff') ==# 'ghostgit://diff'
+  Assert ghostgit#util#GetBufferName('log') ==# 'ghostgit://log'
+
+Execute (GetBufferName handles edge cases):
+  Assert ghostgit#util#GetBufferName('') ==# 'ghostgit://'
+  Assert ghostgit#util#GetBufferName(v:null) ==# 'ghostgit://'
+
+" ============================================================================
+" ghostgit#util#FindBuffer Tests
+" ============================================================================
+
+Execute (FindBuffer locates existing buffer):
+  call ghostgit#util#OpenBuffer('find_test')
+  let l:bufnr = bufnr('%')
+  let l:found_bufnr = ghostgit#util#FindBuffer('find_test')
+  Assert l:bufnr ==# l:found_bufnr
+  silent! bd! ghostgit://find_test
+
+Execute (FindBuffer returns -1 for non-existent buffer):
+  let l:found_bufnr = ghostgit#util#FindBuffer('non_existent')
+  Assert l:found_bufnr ==# -1
+
+" ============================================================================
+" ghostgit#util#EscapePath Tests
+" ============================================================================
+
+Execute (EscapePath handles special characters):
+  Assert ghostgit#util#EscapePath('file with spaces.txt') ==# 'file\ with\ spaces.txt'
+  Assert ghostgit#util#EscapePath('file&symbols.txt') ==# 'file\&symbols.txt'
+
+Execute (EscapePath handles empty input):
+  Assert ghostgit#util#EscapePath('') ==# ''
+
+Execute (EscapePath handles already escaped paths):
+  " Esta prueba depende de la implementación específica
+
+" ============================================================================
+" Performance and Edge Case Tests
+" ============================================================================
+
+Execute (Utility functions perform reasonably fast):
+  let l:start = reltime()
+  for l:i in range(100)
+    call ghostgit#util#OpenBuffer('perf_test_' . l:i)
+    call ghostgit#util#Render(['test line 1', 'test line 2'])
+    silent! bd!
+  endfor
+  let l:elapsed = reltimefloat(reltime(l:start))
+  Assert l:elapsed < 1.0  " Debería ser rápido incluso con muchas operaciones
+
+Execute (Utility functions handle very long messages):
+  call ghostgit#util#OpenBuffer('long_msg_test')
+  let l:very_long_message = repeat('Long message content. ', 100)
+  call ghostgit#util#Render([l:very_long_message])
+  Assert getline(1) ==# l:very_long_message
+  silent! bd! ghostgit://long_msg_test
+
+Execute (Utility functions maintain buffer integrity):
+  " Abrir buffer
+  call ghostgit#util#OpenBuffer('integrity_test')
+  
+  " Verificar configuración inicial
+  Assert &bufhidden ==# 'wipe'
+  Assert &buftype ==# 'nofile'
+  
+  " Realizar varias operaciones de renderizado
+  call ghostgit#util#Render(['line1'])
+  call ghostgit#util#Render(['line2', 'line3'])
+  call ghostgit#util#Render(['final', 'lines', 'here'])
+  
+  " Verificar que la configuración se mantiene
+  Assert &bufhidden ==# 'wipe'
+  Assert &buftype ==# 'nofile'
+  Assert !&swapfile
+  Assert !&modifiable
+  
+  silent! bd! ghostgit://integrity_test

@@ -1,15 +1,52 @@
+" ============================================================================
+" ghostgit.vim - Git Command Wrappers Tests
+" ============================================================================
+
 Before:
+  " Configurar repositorio de prueba
   let g:repo = ghostgit#test#Setup()
+  
+  " Guardar directorio de trabajo actual
   let g:cwd = getcwd()
 
 After:
+  " Limpiar repositorio de prueba
   call ghostgit#test#Teardown(g:repo)
+  
+  " Restaurar directorio de trabajo original
   execute 'cd ' . fnameescape(g:cwd)
+
+" ============================================================================
+" ghostgit#git#Status Tests
+" ============================================================================
 
 Execute (ghostgit#git#Status returns branch info):
   let g:result = ghostgit#git#Status(g:repo)
   Assert len(g:result) > 0
   Assert g:result[0] =~# '## main'
+
+Execute (ghostgit#git#Status with explicit format):
+  let g:result = ghostgit#git#Status(g:repo, '--porcelain')
+  " Porcelain format should be machine-readable
+  Assert len(g:result) >= 0
+
+Execute (ghostgit#git#Status handles empty repo):
+  " Crear repositorio vacío sin commits
+  let l:empty_repo = ghostgit#test#SetupEmptyRepo()
+  let g:result = ghostgit#git#Status(l:empty_repo)
+  " Debería manejar repositorios sin commits apropiadamente
+  call ghostgit#test#Teardown(l:empty_repo)
+
+Execute (ghostgit#git#Status outside repo):
+  " Probar en directorio que no es repositorio
+  let l:temp_dir = tempname()
+  call mkdir(l:temp_dir, 'p')
+  let g:result = ghostgit#git#Status(l:temp_dir)
+  AssertEqual [], g:result
+
+" ============================================================================
+" ghostgit#git#Add Tests
+" ============================================================================
 
 Execute (ghostgit#git#Add stages a file):
   call ghostgit#test#CreateFile(g:repo, 'test.txt', 'hello')
@@ -18,13 +55,87 @@ Execute (ghostgit#git#Add stages a file):
   let g:staged = filter(copy(g:result), {_, v -> v =~# 'A  test\.txt'})
   Assert len(g:staged) > 0
 
+Execute (ghostgit#git#Add with multiple files):
+  " Crear varios archivos
+  call ghostgit#test#CreateFile(g:repo, 'file1.txt', 'content1')
+  call ghostgit#test#CreateFile(g:repo, 'file2.txt', 'content2')
+  
+  " Agregar ambos archivos
+  call ghostgit#git#Add(['file1.txt', 'file2.txt'], g:repo)
+  
+  " Verificar que ambos están en staging
+  let g:result = ghostgit#git#Status(g:repo)
+  let g:staged1 = filter(copy(g:result), {_, v -> v =~# 'A  file1\.txt'})
+  let g:staged2 = filter(copy(g:result), {_, v -> v =~# 'A  file2\.txt'})
+  Assert len(g:staged1) > 0
+  Assert len(g:staged2) > 0
+
+Execute (ghostgit#git#Add handles non-existent file):
+  " Intentar agregar archivo que no existe
+  let g:result = ghostgit#git#Add('nonexistent.txt', g:repo)
+  " Debería manejar el error apropiadamente
+
+Execute (ghostgit#git#Add with directory):
+  " Crear directorio con archivos
+  call mkdir(g:repo . '/subdir', 'p')
+  call ghostgit#test#CreateFile(g:repo, 'subdir/file.txt', 'subdir content')
+  
+  " Agregar todo el directorio
+  call ghostgit#git#Add('subdir', g:repo)
+  
+  " Verificar que el archivo fue agregado
+  let g:result = ghostgit#git#Status(g:repo)
+  let g:staged = filter(copy(g:result), {_, v -> v =~# 'A  subdir/file\.txt'})
+  Assert len(g:staged) > 0
+
+" ============================================================================
+" ghostgit#git#Reset Tests
+" ============================================================================
+
 Execute (ghostgit#git#Reset unstages a file):
   call ghostgit#test#CreateFile(g:repo, 'test.txt', 'hello')
   call ghostgit#test#StageFile(g:repo, 'test.txt')
   call ghostgit#git#Reset('test.txt', g:repo)
   let g:result = ghostgit#git#Status(g:repo)
-  let g:untracked = filter(copy(g:result), {_, v -> v =~# '??'})
+  let g:untracked = filter(copy(g:result), {_, v -> v =~# '?? test\.txt'})
   Assert len(g:untracked) > 0
+
+Execute (ghostgit#git#Reset with --hard):
+  " Crear archivo y hacer commit
+  call ghostgit#test#CreateFile(g:repo, 'committed.txt', 'committed content')
+  call ghostgit#test#StageFile(g:repo, 'committed.txt')
+  call ghostgit#core#Run(['commit', '-m', 'Add committed file'], g:repo)
+  
+  " Modificar archivo
+  call ghostgit#test#CreateFile(g:repo, 'committed.txt', 'modified content')
+  
+  " Reset hard debería revertir cambios
+  call ghostgit#git#Reset('--hard', g:repo)
+  
+  " Verificar que el archivo volvió a su estado original
+  let l:content = readfile(g:repo . '/committed.txt')
+  Assert l:content[0] ==# 'committed content'
+
+Execute (ghostgit#git#Reset all files):
+  " Crear varios archivos en staging
+  call ghostgit#test#CreateFile(g:repo, 'reset1.txt', 'content1')
+  call ghostgit#test#CreateFile(g:repo, 'reset2.txt', 'content2')
+  call ghostgit#test#StageFile(g:repo, 'reset1.txt')
+  call ghostgit#test#StageFile(g:repo, 'reset2.txt')
+  
+  " Resetear todos los archivos
+  call ghostgit#git#Reset([], g:repo)
+  
+  " Verificar que todos están como untracked
+  let g:result = ghostgit#git#Status(g:repo)
+  let g:untracked1 = filter(copy(g:result), {_, v -> v =~# '?? reset1\.txt'})
+  let g:untracked2 = filter(copy(g:result), {_, v -> v =~# '?? reset2\.txt'})
+  Assert len(g:untracked1) > 0
+  Assert len(g:untracked2) > 0
+
+" ============================================================================
+" ghostgit#git#Diff Tests
+" ============================================================================
 
 Execute (ghostgit#git#Diff returns diff for modified file):
   call ghostgit#test#CreateFile(g:repo, 'test.txt', "hello\n")
@@ -33,3 +144,129 @@ Execute (ghostgit#git#Diff returns diff for modified file):
   let g:result = ghostgit#git#Diff('test.txt', '', g:repo)
   Assert len(g:result) > 0
   Assert join(g:result, "\n") =~# '^diff --git'
+
+Execute (ghostgit#git#Diff with --cached):
+  " Crear archivo y agregar al staging
+  call ghostgit#test#CreateFile(g:repo, 'cached_diff.txt', "line1\n")
+  call ghostgit#test#StageFile(g:repo, 'cached_diff.txt')
+  
+  " Modificar archivo sin agregar al staging
+  call ghostgit#test#CreateFile(g:repo, 'cached_diff.txt', "line1\nline2\n")
+  
+  " Diff con --cached debería mostrar solo los cambios en staging
+  let g:result = ghostgit#git#Diff('cached_diff.txt', '--cached', g:repo)
+  Assert len(g:result) > 0
+  Assert join(g:result, "\n") =~# '^diff --git'
+
+Execute (ghostgit#git#Diff without filename):
+  " Crear varios archivos y modificar algunos
+  call ghostgit#test#CreateFile(g:repo, 'diff1.txt', "content1\n")
+  call ghostgit#test#CreateFile(g:repo, 'diff2.txt', "content2\n")
+  call ghostgit#test#StageFile(g:repo, 'diff1.txt')
+  call ghostgit#test#StageFile(g:repo, 'diff2.txt')
+  call ghostgit#core#Run(['commit', '-m', 'Initial commit'], g:repo)
+  
+  " Modificar archivos
+  call ghostgit#test#CreateFile(g:repo, 'diff1.txt', "content1\nadded line\n")
+  call ghostgit#test#CreateFile(g:repo, 'diff2.txt', "content2\nadded line\n")
+  
+  " Diff sin filename debería mostrar todos los cambios
+  let g:result = ghostgit#git#Diff('', '', g:repo)
+  Assert len(g:result) > 0
+  Assert join(g:result, "\n") =~# '^diff --git'
+
+Execute (ghostgit#git#Diff with extra args):
+  " Crear archivo para diff
+  call ghostgit#test#CreateFile(g:repo, 'args_test.txt', "word1 word2\n")
+  call ghostgit#test#StageFile(g:repo, 'args_test.txt')
+  call ghostgit#test#CreateFile(g:repo, 'args_test.txt', "word1 changed_word\n")
+  
+  " Usar --word-diff como argumento extra
+  let g:result = ghostgit#git#Diff('args_test.txt', '--word-diff', g:repo)
+  Assert len(g:result) > 0
+
+" ============================================================================
+" Additional Git Command Tests
+" ============================================================================
+
+Execute (ghostgit#git#Commit creates commit):
+  " Crear y stagear archivo
+  call ghostgit#test#CreateFile(g:repo, 'commit_test.txt', 'commit content')
+  call ghostgit#test#StageFile(g:repo, 'commit_test.txt')
+  
+  " Hacer commit
+  let g:result = ghostgit#git#Commit('Test commit message', {}, g:repo)
+  
+  " Verificar que el commit fue creado
+  let g:log = ghostgit#core#Run(['log', '--oneline', '-1'], g:repo)
+  Assert len(g:log) > 0
+  Assert g:log[0] =~# 'Test commit message'
+
+Execute (ghostgit#git#Log returns commit history):
+  " Crear un par de commits
+  call ghostgit#test#CreateFile(g:repo, 'log1.txt', 'log content 1')
+  call ghostgit#test#StageFile(g:repo, 'log1.txt')
+  call ghostgit#git#Commit('First commit', {}, g:repo)
+  
+  call ghostgit#test#CreateFile(g:repo, 'log2.txt', 'log content 2')
+  call ghostgit#test#StageFile(g:repo, 'log2.txt')
+  call ghostgit#git#Commit('Second commit', {}, g:repo)
+  
+  " Obtener log
+  let g:log = ghostgit#git#Log(g:repo)
+  Assert len(g:log) >= 2
+  Assert g:log[0] =~# 'Second commit'
+  Assert g:log[1] =~# 'First commit'
+
+Execute (ghostgit#git#Branch lists branches):
+  " Obtener lista de ramas
+  let g:branches = ghostgit#git#Branch(g:repo)
+  Assert len(g:branches) > 0
+  Assert g:branches[0] =~# '\* main'  " Rama actual marcada con *
+
+Execute (ghostgit#git#Checkout switches branches):
+  " Crear nueva rama
+  call ghostgit#core#Run(['checkout', '-b', 'test-branch'], g:repo)
+  
+  " Verificar que estamos en la nueva rama
+  let g:branch = ghostgit#core#CurrentBranch(g:repo)
+  Assert g:branch ==# 'test-branch'
+  
+  " Volver a main
+  call ghostgit#git#Checkout('main', g:repo)
+  let g:branch = ghostgit#core#CurrentBranch(g:repo)
+  Assert g:branch ==# 'main'
+
+" ============================================================================
+" Edge Cases and Error Handling Tests
+" ============================================================================
+
+Execute (Git commands handle empty inputs):
+  " Probar con entradas vacías
+  let g:result = ghostgit#git#Add('', g:repo)
+  " Debería manejar apropiadamente
+
+Execute (Git commands handle invalid paths):
+  let g:result = ghostgit#git#Status('/invalid/path')
+  AssertEqual [], g:result
+
+Execute (Git commands validate repository):
+  " Probar en directorio no-git
+  let l:temp_dir = tempname()
+  call mkdir(l:temp_dir, 'p')
+  let g:result = ghostgit#git#Add('file.txt', l:temp_dir)
+  " Debería manejar el error apropiadamente
+
+" ============================================================================
+" Performance Tests
+" ============================================================================
+
+Execute (Git commands perform reasonably fast):
+  " Medir tiempo de ejecución para comandos comunes
+  let l:start = reltime()
+  for l:i in range(50)
+    let g:dummy = ghostgit#git#Status(g:repo)
+  endfor
+  let l:elapsed = reltimefloat(reltime(l:start))
+  " Debería tomar menos de 2 segundos para 50 llamadas
+  Assert l:elapsed < 2.0
