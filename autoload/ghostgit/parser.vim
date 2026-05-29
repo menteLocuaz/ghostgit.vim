@@ -2,6 +2,7 @@
 " ghostgit.vim - Git Output Parser
 " ============================================================================
 
+" Parse a line from `git status --short`
 function! ghostgit#parser#ParseStatusLine(line) abort
   let l:index    = a:line[0]
   let l:worktree = a:line[1]
@@ -14,6 +15,7 @@ function! ghostgit#parser#ParseStatusLine(line) abort
         \ }
 endfunction
 
+" Classify a status item
 function! ghostgit#parser#Classify(item) abort
   if a:item.index == '?' | return 'untracked' | endif
   if a:item.index != ' ' | return 'staged'    | endif
@@ -21,6 +23,7 @@ function! ghostgit#parser#Classify(item) abort
   return 'unmodified'
 endfunction
 
+" Parse a line from `git log --oneline --graph`
 function! ghostgit#parser#ParseLogLine(line) abort
   " Handle graph characters at the beginning
   let l:hash_match = matchlist(a:line, '^\([*|\\\/ ]*\)\(\x\{7,\}\)\s\+\(.*\)$')

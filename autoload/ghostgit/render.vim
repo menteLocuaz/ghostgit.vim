@@ -111,7 +111,7 @@ function! ghostgit#render#Status(items) abort
 
   " Add command help
   call extend(l:lines, [
-        \ 'Commands: s=stage, u=unstage, <cr>=diff, cc=commit, ca=amend, r=refresh, q=close',
+        \ 'Commands: s=stage, u=unstage, <cr>=diff, cc=commit, r=refresh, q=close',
         \ ''
         \ ])
 

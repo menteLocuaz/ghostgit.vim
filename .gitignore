@@ -1,0 +1,50 @@
+# Archivos temporales de Vim y Neovim
+*~
+*.swp
+*.swo
+*.swn
+*.swm
+*.swl
+*.swo
+*.tmp
+tags
+tags.lock
+tags.temp
+
+# Directorios de sesión e información de estado
+.netrwhist
+undo/
+backup/
+swap/
+shada/
+
+# Logs y archivos de depuración
+*.log
+
+# Directorios de dependencias y empaquetado (comunes en Lua/Neovim)
+.repro/
+lua-language-server/
+.luarocks/
+
+# Archivos de Python (si el plugin usa rplugin o soporte python)
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+env/
+dist/
+build/
+*.egg-info/
+
+# Archivos de Node.js/JavaScript (si es un plugin basado en coc.nvim o node)
+node_modules/
+package-lock.json
+yarn.log
+
+# Directorios generados por herramientas de testing (como busted o plenary.nvim)
+.busted
+spec/reports/
+
+# Archivos de configuración de lenguajes o linters
+.styluaignore
+.luacheckrc
