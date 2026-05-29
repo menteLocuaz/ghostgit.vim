@@ -156,7 +156,7 @@ Semantic wrappers. Feature modules call these, never raw `core#Run`.
 
 ### Layer 3 — `autoload/ghostgit/state.vim`
 
-Global state manager. Stores repo metadata and buffer state across the session.
+Global state manager. Stores repository metadata and buffer state across the session.
 
 | Function | Purpose |
 |---|---|
