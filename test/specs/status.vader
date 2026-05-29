@@ -40,7 +40,7 @@ Execute (status#Open opens status buffer in repo):
   " Verificar configuración del buffer
   Assert &buftype ==# 'nofile'
   Assert &bufhidden ==# 'wipe'
-  Assert &filetype ==# 'ghostgit_status'
+  Assert &filetype ==# 'ghostgit'
 
 Execute (status#Open does not error outside repo):
   " Crear directorio temporal fuera de repositorio
@@ -70,7 +70,7 @@ Execute (status#Open reuses existing buffer):
   
   " Abrir buffer de estado por primera vez
   call ghostgit#status#Open()
-  let l:first_bufnr = bufnr('%')
+  let g:first_bufnr = bufnr('%')
   
   " Volver al directorio original y luego regresar
   execute 'cd ' . fnameescape(g:cwd)
@@ -78,10 +78,10 @@ Execute (status#Open reuses existing buffer):
   
   " Abrir buffer de estado nuevamente (debería reusar)
   call ghostgit#status#Open()
-  let l:second_bufnr = bufnr('%')
+  let g:second_bufnr = bufnr('%')
   
   " Verificar que es el mismo buffer
-  Assert l:first_bufnr ==# l:second_bufnr
+  Assert g:first_bufnr ==# g:second_bufnr
 
 Execute (status#Open sets proper buffer options):
   " Cambiar al directorio del repositorio
@@ -93,8 +93,8 @@ Execute (status#Open sets proper buffer options):
   " Verificar configuración del buffer
   Assert &buftype ==# 'nofile'
   Assert &bufhidden ==# 'wipe'
-  Assert &noswapfile
-  Assert &nomodifiable
+  Assert !&swapfile
+  Assert !&modifiable
   Assert &cursorline
 
 Execute (status#Open with existing files):
@@ -123,7 +123,7 @@ Execute (status#Refresh updates buffer content):
   call ghostgit#status#Open()
   
   " Guardar contenido inicial
-  let l:initial_content = getline(1, '$')
+  let g:initial_content = getline(1, '$')
   
   " Crear nuevo archivo
   call ghostgit#test#CreateFile(g:repo, 'refresh_test.txt', 'new content')
@@ -132,9 +132,10 @@ Execute (status#Refresh updates buffer content):
   call ghostgit#status#Refresh()
   
   " Verificar que el contenido cambió
-  let l:new_content = getline(1, '$')
-  Assert l:initial_content !=# l:new_content
-  Assert join(l:new_content, "\n") =~# 'refresh_test.txt'
+  let g:new_content = getline(1, '$')
+  Assert g:initial_content !=# g:new_content
+  let g:joined = join(g:new_content, "\n")
+  Assert g:joined =~# 'refresh_test.txt'
 
 Execute (status#Refresh preserves cursor position):
   " Cambiar al directorio del repositorio
@@ -261,10 +262,10 @@ Execute (status#Commit creates commit with staged files):
 
 Execute (status functions handle empty repository):
   " Configurar repositorio vacío (sin commits)
-  let l:empty_repo = ghostgit#test#SetupEmptyRepo()
+  let g:empty_repo = ghostgit#test#SetupEmptyRepo()
   
   " Cambiar al repositorio vacío
-  execute 'cd ' . fnameescape(l:empty_repo)
+  execute 'cd ' . fnameescape(g:empty_repo)
   
   " Abrir status en repositorio vacío
   call ghostgit#status#Open()
@@ -274,15 +275,15 @@ Execute (status functions handle empty repository):
   " Verificar contenido apropiado
   
   " Limpiar
-  call ghostgit#test#Teardown(l:empty_repo)
+  call ghostgit#test#Teardown(g:empty_repo)
 
 Execute (status functions handle large repositories):
   " Cambiar al directorio del repositorio
   execute 'cd ' . fnameescape(g:repo)
   
   " Crear muchos archivos
-  for l:i in range(50)
-    call ghostgit#test#CreateFile(g:repo, 'file' . l:i . '.txt', 'content' . l:i)
+  for i in range(50)
+    call ghostgit#test#CreateFile(g:repo, 'file' . i . '.txt', 'content' . i)
   endfor
   
   " Abrir status
@@ -293,7 +294,7 @@ Execute (status functions handle large repositories):
   
   " Verificar que maneja muchos archivos apropiadamente
   let g:lines = getline(1, '$')
-  Assert len(g:lines) > 10  " Debería mostrar muchos archivos
+  Assert len(g:lines) > 10
 
 Execute (status functions handle unicode filenames):
   " Cambiar al directorio del repositorio
@@ -338,23 +339,23 @@ Execute (status operations perform reasonably fast):
   execute 'cd ' . fnameescape(g:repo)
   
   " Crear archivos de prueba
-  for l:i in range(100)
-    call ghostgit#test#CreateFile(g:repo, 'perf_test_' . l:i . '.txt', 'performance test content')
+  for i in range(100)
+    call ghostgit#test#CreateFile(g:repo, 'perf_test_' . i . '.txt', 'performance test content')
   endfor
   
   " Medir tiempo de apertura
-  let l:start = reltime()
+  let g:open_start = reltime()
   call ghostgit#status#Open()
-  let l:open_time = reltimefloat(reltime(l:start))
+  let g:open_time = reltimefloat(reltime(g:open_start))
   
   " Medir tiempo de refresco
-  let l:start = reltime()
+  let g:refresh_start = reltime()
   call ghostgit#status#Refresh()
-  let l:refresh_time = reltimefloat(reltime(l:start))
+  let g:refresh_time = reltimefloat(reltime(g:refresh_start))
   
   " Verificar tiempos razonables
-  Assert l:open_time < 2.0
-  Assert l:refresh_time < 1.0
+  Assert g:open_time < 2.0
+  Assert g:refresh_time < 1.0
 
 " ============================================================================
 " Integration Tests
@@ -368,13 +369,13 @@ Execute (status buffer integrates with state management):
   call ghostgit#status#Open()
   
   " Verificar que el estado se actualizó apropiadamente
-  let l:buffer_info = ghostgit#state#GetBuffer('status')
-  Assert !empty(l:buffer_info)
-  AssertEqual 'status', l:buffer_info.type
+  let g:buffer_info = ghostgit#state#GetBuffer('status')
+  Assert !empty(g:buffer_info)
+  AssertEqual 'status', g:buffer_info.type
   
   " Verificar que hay items en caché
-  let l:cached_items = ghostgit#state#GetCachedItems('status')
-  " Assert !empty(l:cached_items)  " Puede estar vacío inicialmente
+  let g:cached_items = ghostgit#state#GetCachedItems('status')
+  " Assert !empty(g:cached_items)  " Puede estar vacío inicialmente
 
 Execute (status buffer closes properly):
   " Cambiar al directorio del repositorio

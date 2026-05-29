@@ -32,16 +32,16 @@ Execute (ghostgit#git#Status with explicit format):
 
 Execute (ghostgit#git#Status handles empty repo):
   " Crear repositorio vacío sin commits
-  let l:empty_repo = ghostgit#test#SetupEmptyRepo()
-  let g:result = ghostgit#git#Status(l:empty_repo)
+  let g:empty_repo = ghostgit#test#SetupEmptyRepo()
+  let g:result = ghostgit#git#Status(g:empty_repo)
   " Debería manejar repositorios sin commits apropiadamente
-  call ghostgit#test#Teardown(l:empty_repo)
+  call ghostgit#test#Teardown(g:empty_repo)
 
 Execute (ghostgit#git#Status outside repo):
   " Probar en directorio que no es repositorio
-  let l:temp_dir = tempname()
-  call mkdir(l:temp_dir, 'p')
-  let g:result = ghostgit#git#Status(l:temp_dir)
+  let g:temp_dir = tempname()
+  call mkdir(g:temp_dir, 'p')
+  let g:result = ghostgit#git#Status(g:temp_dir)
   AssertEqual [], g:result
 
 " ============================================================================
@@ -113,8 +113,8 @@ Execute (ghostgit#git#Reset with --hard):
   call ghostgit#git#Reset('--hard', g:repo)
   
   " Verificar que el archivo volvió a su estado original
-  let l:content = readfile(g:repo . '/committed.txt')
-  Assert l:content[0] ==# 'committed content'
+  let g:content = readfile(g:repo . '/committed.txt')
+  Assert g:content[0] ==# 'committed content'
 
 Execute (ghostgit#git#Reset all files):
   " Crear varios archivos en staging
@@ -143,7 +143,8 @@ Execute (ghostgit#git#Diff returns diff for modified file):
   call ghostgit#test#CreateFile(g:repo, 'test.txt', "hello\nworld\n")
   let g:result = ghostgit#git#Diff('test.txt', '', g:repo)
   Assert len(g:result) > 0
-  Assert join(g:result, "\n") =~# '^diff --git'
+  let g:joined = join(g:result, "\n")
+  Assert g:joined =~# '^diff --git'
 
 Execute (ghostgit#git#Diff with --cached):
   " Crear archivo y agregar al staging
@@ -156,7 +157,8 @@ Execute (ghostgit#git#Diff with --cached):
   " Diff con --cached debería mostrar solo los cambios en staging
   let g:result = ghostgit#git#Diff('cached_diff.txt', '--cached', g:repo)
   Assert len(g:result) > 0
-  Assert join(g:result, "\n") =~# '^diff --git'
+  let g:joined = join(g:result, "\n")
+  Assert g:joined =~# '^diff --git'
 
 Execute (ghostgit#git#Diff without filename):
   " Crear varios archivos y modificar algunos
@@ -173,7 +175,8 @@ Execute (ghostgit#git#Diff without filename):
   " Diff sin filename debería mostrar todos los cambios
   let g:result = ghostgit#git#Diff('', '', g:repo)
   Assert len(g:result) > 0
-  Assert join(g:result, "\n") =~# '^diff --git'
+  let g:joined = join(g:result, "\n")
+  Assert g:joined =~# '^diff --git'
 
 Execute (ghostgit#git#Diff with extra args):
   " Crear archivo para diff
@@ -222,7 +225,7 @@ Execute (ghostgit#git#Branch lists branches):
   " Obtener lista de ramas
   let g:branches = ghostgit#git#Branch(g:repo)
   Assert len(g:branches) > 0
-  Assert g:branches[0] =~# '\* main'  " Rama actual marcada con *
+  Assert g:branches[0] =~# '\* main'
 
 Execute (ghostgit#git#Checkout switches branches):
   " Crear nueva rama
@@ -252,9 +255,9 @@ Execute (Git commands handle invalid paths):
 
 Execute (Git commands validate repository):
   " Probar en directorio no-git
-  let l:temp_dir = tempname()
-  call mkdir(l:temp_dir, 'p')
-  let g:result = ghostgit#git#Add('file.txt', l:temp_dir)
+  let g:temp_dir2 = tempname()
+  call mkdir(g:temp_dir2, 'p')
+  let g:result = ghostgit#git#Add('file.txt', g:temp_dir2)
   " Debería manejar el error apropiadamente
 
 " ============================================================================
@@ -263,10 +266,10 @@ Execute (Git commands validate repository):
 
 Execute (Git commands perform reasonably fast):
   " Medir tiempo de ejecución para comandos comunes
-  let l:start = reltime()
-  for l:i in range(50)
+  let g:git_start = reltime()
+  for i in range(50)
     let g:dummy = ghostgit#git#Status(g:repo)
   endfor
-  let l:elapsed = reltimefloat(reltime(l:start))
+  let g:git_elapsed = reltimefloat(reltime(g:git_start))
   " Debería tomar menos de 2 segundos para 50 llamadas
-  Assert l:elapsed < 2.0
+  Assert g:git_elapsed < 2.0

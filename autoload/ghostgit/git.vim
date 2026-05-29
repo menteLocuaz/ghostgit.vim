@@ -3,20 +3,30 @@
 " ============================================================================
 
 " Get repository status
-" a:000[0] - Optional callback for async execution
-" a:000[1] - Optional working directory
+" a:000[0] - Optional callback (Funcref) for async execution or working directory (string)
+" a:000[1] - Optional working directory (when first arg is callback)
 function! ghostgit#git#Status(...) abort
-  let l:callback = get(a:000, 0, v:null)
-  let l:cwd = get(a:000, 1, '')
+  let l:Callback = v:null
+  let l:cwd = ''
+
+  if a:0 > 0
+    if type(a:1) == v:t_func
+      let l:Callback = a:1
+      let l:cwd = get(a:000, 1, '')
+    else
+      let l:Callback = v:null
+      let l:cwd = a:1
+    endif
+  endif
 
   let l:args = ['status', '--short', '--branch']
 
-  if l:callback != v:null
+  if l:Callback != v:null
     let l:stdout = []
     return ghostgit#job#Run(['git'] + l:args, {
           \ 'cwd': l:cwd,
           \ 'on_stdout': {ch, data -> extend(l:stdout, data)},
-          \ 'on_exit': {job, code -> l:callback(l:stdout, code)}
+          \ 'on_exit': {job, code -> l:Callback(l:stdout, code)}
           \ })
   endif
 
@@ -24,7 +34,7 @@ function! ghostgit#git#Status(...) abort
   return ghostgit#core#Run(l:args, l:cwd)
 endfunction
 
-" Add file to staging area
+" Add file(s) to staging area
 function! ghostgit#git#Add(file, ...) abort
   " Validate arguments
   if empty(a:file)
@@ -35,33 +45,44 @@ function! ghostgit#git#Add(file, ...) abort
   " Get optional working directory
   let l:cwd = get(a:000, 0, '')
   
+  " Handle both string and list of files
+  let l:files = type(a:file) == v:t_list ? a:file : [a:file]
+  let l:args = ['add', '--'] + l:files
+  
   " Run the command git add
-  return ghostgit#core#Run(['add', '--', a:file], l:cwd)
+  return ghostgit#core#Run(l:args, l:cwd)
 endfunction
 
-" Remove file from staging area
+" Remove file from staging area or perform reset
 function! ghostgit#git#Reset(file, ...) abort
-  " Validate arguments
+  " Get optional working directory
+  let l:cwd = get(a:000, 0, '')
+  
+  " Handle --hard and other flag-based resets
+  if type(a:file) == v:t_string && a:file =~# '^--'
+    return ghostgit#core#Run(['reset', a:file], l:cwd)
+  endif
+  
+  " Handle reset of all files (empty list)
+  if type(a:file) == v:t_list && empty(a:file)
+    return ghostgit#core#Run(['reset', 'HEAD', '--', '.'], l:cwd)
+  endif
+
+  " Validate file argument
   if empty(a:file)
     call ghostgit#util#Error('File path cannot be empty')
     return []
   endif
   
-  " Get optional working directory
-  let l:cwd = get(a:000, 0, '')
+  " Handle list of files
+  let l:files = type(a:file) == v:t_list ? a:file : [a:file]
   
   " Run the command git reset
-  return ghostgit#core#Run(['reset', 'HEAD', '--', a:file], l:cwd)
+  return ghostgit#core#Run(['reset', 'HEAD', '--'] + l:files, l:cwd)
 endfunction
 
 " Get diff from a file
 function! ghostgit#git#Diff(file, ...) abort
-  " Validate arguments
-  if empty(a:file)
-    call ghostgit#util#Error('File path cannot be empty')
-    return []
-  endif
-  
   " Obtain additional arguments and working directory
   let l:extra_args = get(a:000, 0, '')
   let l:cwd = get(a:000, 1, '')
@@ -79,9 +100,11 @@ function! ghostgit#git#Diff(file, ...) abort
     endif
   endif
   
-  " Add separator and filename
-  call add(l:args, '--')
-  call add(l:args, a:file)
+  " Add separator and filename (if file is specified)
+  if !empty(a:file)
+    call add(l:args, '--')
+    call add(l:args, a:file)
+  endif
   
   " Run command
   return ghostgit#core#Run(l:args, l:cwd)
@@ -137,20 +160,29 @@ function! ghostgit#git#Commit(message, ...) abort
 endfunction
 
 " Get list of commits
-" a:000[0] - Optional callback for async execution
+" a:000[0] - Optional callback (Funcref) for async execution or working directory (string)
 " a:000[1] - Optional working directory
 function! ghostgit#git#Log(...) abort
-  let l:callback = get(a:000, 0, v:null)
-  let l:cwd = get(a:000, 1, '')
+  let l:Callback = v:null
+  let l:cwd = ''
+
+  if a:0 > 0
+    if type(a:1) == v:t_func
+      let l:Callback = a:1
+      let l:cwd = get(a:000, 1, '')
+    else
+      let l:cwd = a:1
+    endif
+  endif
 
   let l:args = ['log', '--oneline', '--decorate', '--graph', '-100']
 
-  if l:callback != v:null
+  if l:Callback != v:null
     let l:stdout = []
     return ghostgit#job#Run(['git'] + l:args, {
           \ 'cwd': l:cwd,
           \ 'on_stdout': {ch, data -> extend(l:stdout, data)},
-          \ 'on_exit': {job, code -> l:callback(l:stdout, code)}
+          \ 'on_exit': {job, code -> l:Callback(l:stdout, code)}
           \ })
   endif
 
@@ -165,20 +197,24 @@ function! ghostgit#git#Checkout(branch, ...) abort
     return []
   endif
   
-  " Get additional options
-  let l:options = get(a:000, 0, [])
-  let l:cwd = get(a:000, 1, '')
+  " Determine if first optional arg is options (list) or cwd (string)
+  let l:options = []
+  let l:cwd = ''
+  if a:0 > 0
+    if type(a:1) == v:t_list
+      let l:options = a:1
+      let l:cwd = get(a:000, 1, '')
+    else
+      let l:cwd = a:1
+    endif
+  endif
   
   " Build git checkout command
   let l:args = ['checkout']
   
   " Add additional options if available
   if !empty(l:options)
-    if type(l:options) == v:t_list
-      call extend(l:args, l:options)
-    else
-      call add(l:args, l:options)
-    endif
+    call extend(l:args, l:options)
   endif
   
   " Add branch name
@@ -215,6 +251,12 @@ function! ghostgit#git#Push(...) abort
   
   " Run command
   return ghostgit#core#Run(l:args, l:cwd)
+endfunction
+
+" List branches (returns raw branch list with * for current)
+function! ghostgit#git#Branch(...) abort
+  let l:cwd = get(a:000, 0, '')
+  return ghostgit#core#Run(['branch'], l:cwd)
 endfunction
 
 " Shift pull

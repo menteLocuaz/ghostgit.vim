@@ -33,7 +33,7 @@ function! ghostgit#job#Run(cmd, opts) abort
   endif
 
   " Normalize command to list format
-  let l:cmd = type(a:cmd) == v:t_list ? copy(a:cmd) : [a:cmd]
+  let l:cmd = type(a:cmd) == v:t_list ? copy(a:cmd) : split(a:cmd)
   let l:opts = a:opts
 
   " Dispatch to appropriate runner based on Vim version
@@ -51,13 +51,14 @@ endfunction
 function! ghostgit#job#Wait(job_id) abort
   " Early return for invalid job IDs or sync jobs
   if a:job_id < 0 | return | endif
+  if !has_key(s:jobs, a:job_id) | return | endif
 
   try
-    if has('nvim') && exists('*jobwait')
-      call jobwait([a:job_id])
-    elseif has('job') && exists('*job_wait') && has_key(s:jobs, a:job_id)
+    if has('nvim') && exists('*jobwait') && has_key(s:jobs[a:job_id], 'raw')
+      call jobwait([s:jobs[a:job_id].raw])
+    elseif has('job') && exists('*job_wait') && has_key(s:jobs[a:job_id], 'job')
       call job_wait(s:jobs[a:job_id].job, 30000)
-    elseif has('job') && exists('*job_status') && has_key(s:jobs, a:job_id)
+    elseif has('job') && exists('*job_status') && has_key(s:jobs[a:job_id], 'job')
       let l:job = s:jobs[a:job_id].job
       let l:waited = 0
       while job_status(l:job) ==# 'run' && l:waited < 30000

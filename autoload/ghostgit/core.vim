@@ -4,62 +4,39 @@
 
 " Run a git command and return output
 function! ghostgit#core#Run(args, ...) abort
-<<<<<<< HEAD
   " Get the working directory
-  let l:cwd = get(a:000, 0, '')
-  if empty(l:cwd)
-    let l:cwd = getcwd()
+  let l:user_provided_cwd = (a:0 > 0)
+  let l:cwd = get(a:000, 0, getcwd())
+
+  " Fallback to RepoRoot if cwd is empty or invalid (only when not explicitly provided)
+  if !l:user_provided_cwd && (empty(l:cwd) || !isdirectory(l:cwd))
+    let l:cwd = ghostgit#core#RepoRoot()
   endif
 
   " Verify that the directory exists
-  if !isdirectory(l:cwd)
+  if empty(l:cwd) || !isdirectory(l:cwd)
     call ghostgit#util#Error('Directory does not exist: ' . l:cwd)
     return []
   endif
 
-" Build git command
-=======
-  let l:cwd = get(a:000, 0, getcwd())
-
+  " Build git command using -C to avoid global cd side effects
   let l:cmd = ['git', '-C', l:cwd]
->>>>>>> 26e876c (feat(log): implement :GLog with parser, renderer, and buffer lifecycle)
   if type(a:args) == v:t_list
     let l:cmd += a:args
   else
     call add(l:cmd, a:args)
   endif
 
-<<<<<<< HEAD
-" Use temporary directory for command execution
-  let l:saved_cwd = getcwd()
-  try
-    execute 'cd ' . fnameescape(l:cwd)
-    let l:output = systemlist(l:cmd)
-    let l:exit = v:shell_error
-  catch
-    " Restore directory in case of error
-    execute 'cd ' . fnameescape(l:saved_cwd)
-    call ghostgit#util#Error('Failed to execute git command: ' . v:exception)
-=======
   let l:output = systemlist(l:cmd)
   let l:exit = v:shell_error
 
-  if l:exit != 0
-    call ghostgit#util#Error(join(l:output, "\n"))
->>>>>>> 26e876c (feat(log): implement :GLog with parser, renderer, and buffer lifecycle)
-    return []
-  finally
-    " Always restore the original directory
-    execute 'cd ' . fnameescape(l:saved_cwd
-  endtry
-
-" Handling Git errors
+  " Handling Git errors
   if l:exit != 0
     " For some commands, the exit code != 0 may be valid
     " For example, 'git rev-parse --verify HEAD' fails on empty repositories
     " But in most cases, we show an error
-    call ghostgit#util#Error('Git command failed (' . l:exit . '): ' . join(l:cmd, ' ') . "\n" . join(l:output,"\n"))
-    return l:output " Return output even in case of error so the caller can decide
+    call ghostgit#util#Error(join(l:output, "\n"))
+    return []
   endif
 
   return l:output
@@ -67,15 +44,12 @@ endfunction
 
 " Return root from current repo
 function! ghostgit#core#RepoRoot(...) abort
-  " Get job directory
-  let l:cwd = get(a:000, 0, '')
-  if empty(l:cwd)
-    let l:cwd = getcwd()
-  endif
+  " Get current directory
+  let l:cwd = get(a:000, 0, getcwd())
 
-  " Verify cache first
+  " Verify cache first for better performance
   let l:entry = ghostgit#state#GetRepo(l:cwd)
-  if !empty(l:entry) &&   if !empty(l:entry) && !empty(get(l:entry, 'git_dir', ''))
+  if !empty(l:entry) && !empty(get(l:entry, 'git_dir', ''))
     return l:entry.git_dir
   endif
 
@@ -86,13 +60,11 @@ function! ghostgit#core#RepoRoot(...) abort
   if !empty(l:result) && !empty(l:result[0])
     let l:root = l:result[0]
 
-    " validate that the result is a valid directory
+    " Validate that the result is a valid directory
     if isdirectory(l:root)
-      " Cached
+      " Cache the repository root
       call ghostgit#state#SetRepo(l:root)
-      if !has_key(g:ghostgit_state.repos[l:root], 'git_dir')
-        let g:ghostgit_state.repos[l:root].git_dir = l:root
-      endif
+      let g:ghostgit_state.repos[l:root].git_dir = l:root
       return l:root
     else
       call ghostgit#util#Warn('Git root is not a valid directory: ' . l:root)
@@ -104,16 +76,8 @@ endfunction
 
 " Return current branch
 function! ghostgit#core#CurrentBranch(...) abort
-  " Get job directory
-  let l:cwd = get(a:000, 0, '')
-  if empty(l:cwd)
-    let l:cwd = getcwd()
-  endif
-
-  " Verify that we are in a repository
-  if !ghostgit#core#IsRepo(l:cwd)
-    return ''
-  endif
+  " Get working directory
+  let l:cwd = get(a:000, 0, getcwd())
 
   " Run command to get branch
   let l:result = ghostgit#core#Run(['rev-parse', '--abbrev-ref', 'HEAD'], l:cwd)
@@ -136,42 +100,18 @@ endfunction
 
 " Check if the current directory is a git repository
 function! ghostgit#core#IsRepo(...) abort
-  " Get job directory
-  let l:cwd = get(a:000, 0, '')
-  if empty(l:cwd)
-    let l:cwd = getcwd()
-  endif
-
-  " Verify cache first for better performance
-  let l:entry = ghostgit#state#GetRepo(l:cwd)
-  if !empty(l:entry) && get(l:entry, 'is_repo', 0)
-    return l:entry.is_repo
-  endif 
+  " Get working directory
+  let l:cwd = get(a:000, 0, getcwd())
 
   " Run the git command to check if it's a repository
   let l:output = ghostgit#core#Run(['rev-parse', '--git-dir'], l:cwd)
-
-  " Determine if it is an output-based repository and output code
-  let l:is_repo = v:shell_error == 0 && !empty(l:output)
-
-  " Cached
-  call ghostgit#state#SetRepo(l:cwd, {'is_repo': l:is_repo})
-
-  return l:is_repo
+  return !empty(l:output)
 endfunction
 
 " Get list of branches
 function! ghostgit#core#ListBranches(...) abort
-  " Get job directory
-  let l:cwd = get(a:000, 0, '')
-  if empty(l:cwd)
-    let l:cwd = getcwd() 
-  endif
-
-  " Verify that we are in a repository
-  if !ghostgit#core#IsRepo(l:cwd)
-    return []
-  endif
+  " Get working directory
+  let l:cwd = get(a:000, 0, getcwd())
 
   " Get local branches
   let l:local_branches = ghostgit#core#Run(['branch', '--format', '%(refname:short)'], l:cwd)
@@ -185,16 +125,8 @@ endfunction
 
 " Get latest commit
 function! ghostgit#core#LastCommit(...) abort 
-  " Get job directory
-  let l:cwd = get(a:000, 0, '')
-  if empty(l:cwd)
-    let l:cwd = getcwd()
-  endif
-
-  " Verify that we are in a repository
-  if !ghostgit#core#IsRepo(l:cwd)
-    return {}
-  endif
+  " Get working directory
+  let l:cwd = get(a:000, 0, getcwd())
 
   " Get information about the last commit
   let l:hash = ghostgit#core#Run(['rev-parse', 'HEAD'], l:cwd)

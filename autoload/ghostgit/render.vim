@@ -42,8 +42,7 @@ function! ghostgit#render#Status(items) abort
   if !empty(l:conflicted)
     call add(l:lines, 'Conflicting files:')
     for l:item in l:conflicted
-      " Use distinctive visual indicators for conflicts
-      call add(l:lines, '  !' . l:item.worktree . ' ' . l:item.file)
+      call add(l:lines, '  ' . l:item.index . l:item.worktree . ' ' . l:item.file)
     endfor
     call add(l:lines, '')
   endif
@@ -76,6 +75,12 @@ function! ghostgit#render#Status(items) abort
     for l:item in l:untracked
       call add(l:lines, '  ?? ' . l:item.file)
     endfor
+    call add(l:lines, '')
+  endif
+
+  " Show message when no changes
+  if empty(l:staged) && empty(l:unstaged) && empty(l:untracked) && empty(l:conflicted)
+    call add(l:lines, '  No changes')
     call add(l:lines, '')
   endif
 
@@ -122,17 +127,17 @@ endfunction
 function! s:GetStatusSymbol(status_char) abort
   " Convert status characters to more readable symbols
   if a:status_char == 'M'
-    return 'M '  " Modified
+    return 'M'  " Modified
   elseif a:status_char == 'A'
-    return 'A '  " Aggregate
+    return 'A'  " Added
   elseif a:status_char == 'D'
-    return 'D '  " Deleted
+    return 'D'  " Deleted
   elseif a:status_char == 'R'
-    return 'R '  " Renowned
+    return 'R'  " Renamed
   elseif a:status_char == 'C'
-    return 'C '  " Copied
+    return 'C'  " Copied
   elseif a:status_char == 'U'
-    return '!!'  " In conflict (unmerged)
+    return '!'  " In conflict (unmerged)
   else
     return a:status_char
   endif

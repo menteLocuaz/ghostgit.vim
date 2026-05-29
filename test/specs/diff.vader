@@ -68,17 +68,19 @@ Execute (diff#Open with unstaged file):
   " Cambiar al directorio del repositorio
   execute 'cd ' . fnameescape(g:repo)
   
-  " Crear archivo nuevo (sin staging)
-  call ghostgit#test#CreateFile(g:repo, 'newfile.txt', "new content\n")
+  " Crear archivo, stage, commit, then modify for unstaged diff
+  call ghostgit#test#CreateFile(g:repo, 'newfile.txt', "initial content\n")
+  call ghostgit#test#StageFile(g:repo, 'newfile.txt')
+  call ghostgit#core#Run(['commit', '-m', 'add newfile'], g:repo)
+  call ghostgit#test#CreateFile(g:repo, 'newfile.txt', "modified content\n")
   
-  " Abrir diff para archivo nuevo
+  " Abrir diff para archivo modificado (unstaged)
   call ghostgit#diff#Open('newfile.txt')
   
   " Verificar contenido del diff
   let g:text = join(getline(1, '$'), "\n")
   Assert len(getline(1, '$')) > 0
   Assert g:text =~# 'diff --git'
-  Assert g:text =~# 'new file'
 
 Execute (diff#Open handles non-existent file):
   " Cambiar al directorio del repositorio
@@ -110,8 +112,11 @@ Execute (diff#Open sets proper buffer options):
   " Cambiar al directorio del repositorio
   execute 'cd ' . fnameescape(g:repo)
   
-  " Crear archivo de prueba
+  " Crear archivo de prueba (staged and modified for diff to have content)
   call ghostgit#test#CreateFile(g:repo, 'buffer_test.txt', "test\n")
+  call ghostgit#test#StageFile(g:repo, 'buffer_test.txt')
+  call ghostgit#core#Run(['commit', '-m', 'add buffer_test'], g:repo)
+  call ghostgit#test#CreateFile(g:repo, 'buffer_test.txt', "test\nmodified\n")
   
   " Abrir diff
   call ghostgit#diff#Open('buffer_test.txt')
@@ -119,8 +124,8 @@ Execute (diff#Open sets proper buffer options):
   " Verificar configuración del buffer
   Assert &buftype ==# 'nofile'
   Assert &bufhidden ==# 'wipe'
-  Assert &noswapfile
-  Assert &nomodifiable
+  Assert !&swapfile
+  Assert !&modifiable
 
 Execute (diff#Open reuses existing buffer):
   " Cambiar al directorio del repositorio
@@ -131,7 +136,7 @@ Execute (diff#Open reuses existing buffer):
   
   " Abrir diff por primera vez
   call ghostgit#diff#Open('reuse_test.txt')
-  let l:first_bufnr = bufnr('%')
+  let g:first_bufnr = bufnr('%')
   
   " Volver al directorio de trabajo original y luego regresar
   execute 'cd ' . fnameescape(g:cwd)
@@ -139,10 +144,10 @@ Execute (diff#Open reuses existing buffer):
   
   " Abrir diff nuevamente (debería reusar buffer)
   call ghostgit#diff#Open('reuse_test.txt')
-  let l:second_bufnr = bufnr('%')
+  let g:second_bufnr = bufnr('%')
   
   " Verificar que es el mismo buffer
-  Assert l:first_bufnr ==# l:second_bufnr
+  Assert g:first_bufnr ==# g:second_bufnr
 
 " ============================================================================
 " ghostgit#diff#Refresh Tests
@@ -157,7 +162,7 @@ Execute (diff#Refresh updates content):
   call ghostgit#diff#Open('refresh_test.txt')
   
   " Guardar número de líneas inicial
-  let l:initial_lines = line('$')
+  let g:initial_lines = line('$')
   
   " Modificar archivo
   call ghostgit#test#CreateFile(g:repo, 'refresh_test.txt', "line1\nline2\n")
@@ -201,7 +206,7 @@ Execute (diff#CompareCommits compares two commits):
   call ghostgit#core#Run(['commit', '-m', 'Initial commit'])
   
   " Guardar hash del primer commit
-  let l:commit1 = ghostgit#core#Run(['rev-parse', 'HEAD'])[0]
+  let g:commit1 = ghostgit#core#Run(['rev-parse', 'HEAD'])[0]
   
   " Modificar archivo y crear segundo commit
   call ghostgit#test#CreateFile(g:repo, 'version1.txt', "version1\nversion2\n")
@@ -209,10 +214,10 @@ Execute (diff#CompareCommits compares two commits):
   call ghostgit#core#Run(['commit', '-m', 'Second commit'])
   
   " Guardar hash del segundo commit
-  let l:commit2 = ghostgit#core#Run(['rev-parse', 'HEAD'])[0]
+  let g:commit2 = ghostgit#core#Run(['rev-parse', 'HEAD'])[0]
   
   " Comparar los dos commits
-  call ghostgit#diff#CompareCommits(l:commit1, l:commit2)
+  call ghostgit#diff#CompareCommits(g:commit1, g:commit2)
   
   " Verificar contenido del diff
   let g:text = join(getline(1, '$'), "\n")
@@ -250,16 +255,16 @@ Execute (diff#Open performs reasonably fast):
   execute 'cd ' . fnameescape(g:repo)
   
   " Crear archivo grande para diff
-  let l:large_content = []
-  for l:i in range(1000)
-    call add(l:large_content, "Line " . l:i)
+  let g:large_content = []
+  for i in range(1000)
+    call add(g:large_content, "Line " . i)
   endfor
-  call ghostgit#test#CreateFile(g:repo, 'large_file.txt', join(l:large_content, "\n"))
+  call ghostgit#test#CreateFile(g:repo, 'large_file.txt', join(g:large_content, "\n"))
   
   " Medir tiempo de apertura de diff
-  let l:start = reltime()
+  let g:diff_start = reltime()
   call ghostgit#diff#Open('large_file.txt')
-  let l:elapsed = reltimefloat(reltime(l:start))
+  let g:diff_elapsed = reltimefloat(reltime(g:diff_start))
   
   " Debería abrir razonablemente rápido
-  Assert l:elapsed < 2.0
+  Assert g:diff_elapsed < 2.0

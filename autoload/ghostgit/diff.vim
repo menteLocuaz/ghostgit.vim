@@ -55,7 +55,7 @@ function! ghostgit#diff#Open(file, ...) abort
   setlocal noswapfile
   
   " Set buffer title
-  let &local.statusline='%#StatusLine#[GhostGit]\ Diff\ ' . a:file . '%='
+  let &l:statusline='%#StatusLine#[GhostGit]\ Diff\ ' . a:file . '%='
   
   " Configure keyboard mappings
   nnoremap <silent><buffer> q :bd!<CR>
@@ -126,9 +126,14 @@ function! ghostgit#diff#OpenStaged() abort
     call ghostgit#util#Error('Not in a git repository')
     return
   endif
-  
+
+  let l:repo_root = ghostgit#core#RepoRoot()
+  if empty(l:repo_root)
+    return
+  endif
+
   " Get files in staging
-  let l:staged_files = ghostgit#git#GetStagedFiles()
+  let l:staged_files = ghostgit#git#GetStagedFiles(l:repo_root)
   
   " Verify that there are files in staging
   if empty(l:staged_files)
@@ -161,7 +166,7 @@ function! ghostgit#diff#OpenStaged() abort
   setlocal bufhidden=wipe
   setlocal noswapfile
   
-  let &local.statusline='%#StatusLine#[GhostGit]\ Staged\ Diff%='
+  let &l:statusline='%#StatusLine#[GhostGit]\ Staged\ Diff%='
   
   " Configure keyboard mappings
   nnoremap <silent><buffer> q :bd!<CR>
@@ -212,7 +217,7 @@ function! ghostgit#diff#CompareCommits(commit1, commit2, ...) abort
   setlocal bufhidden=wipe
   setlocal noswapfile
   
-  let &local.statusline='%#StatusLine#[GhostGit]\ Diff\ ' . a:commit1 . '..' . a:commit2 . '%='
+  let &l:statusline='%#StatusLine#[GhostGit]\ Diff\ ' . a:commit1 . '..' . a:commit2 . '%='
   
   " Configure keyboard mappings
   nnoremap <silent><buffer> q :bd!<CR>

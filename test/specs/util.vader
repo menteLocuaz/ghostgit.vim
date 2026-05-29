@@ -33,19 +33,21 @@ Execute (OpenBuffer with custom name creates properly named buffer):
 Execute (OpenBuffer reuses existing buffer):
   " Crear buffer por primera vez
   call ghostgit#util#OpenBuffer('reuse_test')
-  let l:first_bufnr = bufnr('%')
+  let g:first_bufnr = bufnr('%')
   
-  " Cambiar a otro buffer
+  " Crear split para que el buffer original siga visible
+  split
   enew
   
   " Reabrir el mismo buffer (debería reusar)
   call ghostgit#util#OpenBuffer('reuse_test')
-  let l:second_bufnr = bufnr('%')
+  let g:second_bufnr = bufnr('%')
   
   " Verificar que es el mismo buffer
-  Assert l:first_bufnr ==# l:second_bufnr
+  Assert g:first_bufnr ==# g:second_bufnr
   
   " Limpiar
+  close
   silent! bd! ghostgit://reuse_test
 
 Execute (OpenBuffer sets proper filetype):
@@ -60,18 +62,20 @@ Execute (OpenBuffer preserves cursor position on reuse):
   
   " Mover cursor a una posición específica
   3
-  let l:expected_line = getline('.')
+  let g:expected_line = getline('.')
   
-  " Cambiar a otro buffer
+  " Crear split para que el buffer original siga visible
+  split
   enew
   
   " Reabrir buffer original
   call ghostgit#util#OpenBuffer('cursor_test')
   
   " Verificar que el contenido está intacto
-  Assert getline(3) ==# l:expected_line
+  Assert getline(3) ==# g:expected_line
   
   " Limpiar
+  close
   silent! bd! ghostgit://cursor_test
 
 " ============================================================================
@@ -120,9 +124,9 @@ Execute (Render handles single line):
 
 Execute (Render handles very long lines):
   call ghostgit#util#OpenBuffer('long_test')
-  let l:very_long_line = repeat('a', 1000)
-  call ghostgit#util#Render([l:very_long_line])
-  Assert getline(1) ==# l:very_long_line
+  let g:very_long_line = repeat('a', 1000)
+  call ghostgit#util#Render([g:very_long_line])
+  Assert getline(1) ==# g:very_long_line
   silent! bd! ghostgit://long_test
 
 Execute (Render handles unicode content):
@@ -152,8 +156,8 @@ Execute (Render with null or invalid input):
 
 Execute (Error echoes message):
   " Redirigir salida para capturar mensaje
-  let l:output = ''
-  redir => l:output
+  let g:output = ''
+  redir => g:output
   try
     call ghostgit#util#Error('test error msg')
   finally
@@ -161,20 +165,20 @@ Execute (Error echoes message):
   endtry
   
   " Verificar que el mensaje fue mostrado
-  Assert l:output =~# 'test error msg'
+  Assert g:output =~# 'test error msg'
   
   " Verificar que no lanza excepción
-  let l:caught = 0
+  let g:caught = 0
   try
     call ghostgit#util#Error('another test error')
   catch
-    let l:caught = 1
+    let g:caught = 1
   endtry
-  Assert !l:caught
+  Assert !g:caught
 
 Execute (Error handles empty message):
-  let l:output = ''
-  redir => l:output
+  let g:output = ''
+  redir => g:output
   try
     call ghostgit#util#Error('')
   finally
@@ -183,18 +187,18 @@ Execute (Error handles empty message):
   " Debería manejar mensajes vacíos
 
 Execute (Error handles unicode messages):
-  let l:output = ''
-  redir => l:output
+  let g:output = ''
+  redir => g:output
   try
     call ghostgit#util#Error('错误测试')
   finally
     redir END
   endtry
-  Assert l:output =~# '错误测试'
+  Assert g:output =~# '错误测试'
 
 Execute (Error formats message appropriately):
-  let l:output = ''
-  redir => l:output
+  let g:output = ''
+  redir => g:output
   try
     call ghostgit#util#Error('Formatted error message')
   finally
@@ -207,83 +211,83 @@ Execute (Error formats message appropriately):
 " ============================================================================
 
 Execute (Info echoes message):
-  let l:output = ''
-  redir => l:output
+  let g:output = ''
+  redir => g:output
   try
     call ghostgit#util#Info('test info msg')
   finally
     redir END
   endtry
   
-  Assert l:output =~# 'test info msg'
+  Assert g:output =~# 'test info msg'
   
   " Verificar que no lanza excepción
-  let l:caught = 0
+  let g:caught = 0
   try
     call ghostgit#util#Info('another test info')
   catch
-    let l:caught = 1
+    let g:caught = 1
   endtry
-  Assert !l:caught
+  Assert !g:caught
 
 Execute (Info handles various message types):
-  let l:output = ''
-  redir => l:output
+  let g:output = ''
+  redir => g:output
   try
     call ghostgit#util#Info('Info with numbers 123')
     call ghostgit#util#Info('Info with symbols !@#$%')
   finally
     redir END
   endtry
-  Assert l:output =~# 'Info with numbers 123'
-  Assert l:output =~# 'Info with symbols !@#$%'
+  Assert g:output =~# 'Info with numbers 123'
+  Assert g:output =~# 'Info with symbols !@#$%'
 
 " ============================================================================
 " ghostgit#util#Warn Tests
 " ============================================================================
 
 Execute (Warn echoes message):
-  let l:output = ''
-  redir => l:output
+  let g:output = ''
+  redir => g:output
   try
     call ghostgit#util#Warn('test warn msg')
   finally
     redir END
   endtry
   
-  Assert l:output =~# 'test warn msg'
+  Assert g:output =~# 'test warn msg'
   
   " Verificar que no lanza excepción
-  let l:caught = 0
+  let g:caught = 0
   try
     call ghostgit#util#Warn('another test warning')
   catch
-    let l:caught = 1
+    let g:caught = 1
   endtry
-  Assert !l:caught
+  Assert !g:caught
 
 Execute (Warn differs from Info and Error visually):
   " Esta prueba verifica que los tres tipos de mensajes 
   " tienen formatos visuales diferentes (depende de implementación)
-  let l:error_output = ''
-  let l:warn_output = ''
-  let l:info_output = ''
+  let g:error_output = ''
+  let g:warn_output = ''
+  let g:info_output = ''
   
-  redir => l:error_output
+  redir => g:error_output
   try
     call ghostgit#util#Error('Error message')
   finally
     redir END
   endtry
   
-  redir => l:warn_output
+  redir => g:warn_output
   try
     call ghostgit#util#Warn('Warning message')
   finally
     redir END
   endtry
   
-  redir => l:info_output
+  redir => g:info_output
   try
     call ghostgit#util#Info('Info message')
   finally
@@ -298,22 +302,22 @@ Execute (Warn differs from Info and Error visually):
 
 Execute (CloseBuffer closes current buffer):
   call ghostgit#util#OpenBuffer('close_test')
-  let l:bufnr = bufnr('%')
+  let g:close_bufnr = bufnr('%')
   call ghostgit#util#CloseBuffer()
-  Assert !bufexists(l:bufnr)
+  Assert !bufexists(g:close_bufnr)
 
 Execute (CloseBuffer handles non-GhostGit buffers):
   " Crear buffer normal
   enew
-  let l:normal_bufnr = bufnr('%')
+  let g:normal_bufnr = bufnr('%')
   
   " Intentar cerrar con CloseBuffer
   call ghostgit#util#CloseBuffer()
   " Debería manejar esto apropiadamente
   
   " Limpiar
-  if bufexists(l:normal_bufnr)
-    execute 'bd!' l:normal_bufnr
+  if bufexists(g:normal_bufnr)
+    execute 'bd!' g:normal_bufnr
   endif
 
 " ============================================================================
@@ -335,14 +339,14 @@ Execute (GetBufferName handles edge cases):
 
 Execute (FindBuffer locates existing buffer):
   call ghostgit#util#OpenBuffer('find_test')
-  let l:bufnr = bufnr('%')
-  let l:found_bufnr = ghostgit#util#FindBuffer('find_test')
-  Assert l:bufnr ==# l:found_bufnr
+  let g:find_bufnr = bufnr('%')
+  let g:found_bufnr = ghostgit#util#FindBuffer('find_test')
+  Assert g:find_bufnr ==# g:found_bufnr
   silent! bd! ghostgit://find_test
 
 Execute (FindBuffer returns -1 for non-existent buffer):
-  let l:found_bufnr = ghostgit#util#FindBuffer('non_existent')
-  Assert l:found_bufnr ==# -1
+  let g:found_bufnr = ghostgit#util#FindBuffer('non_existent')
+  Assert g:found_bufnr ==# -1
 
 " ============================================================================
 " ghostgit#util#EscapePath Tests
@@ -363,20 +367,20 @@ Execute (EscapePath handles already escaped paths):
 " ============================================================================
 
 Execute (Utility functions perform reasonably fast):
-  let l:start = reltime()
-  for l:i in range(100)
-    call ghostgit#util#OpenBuffer('perf_test_' . l:i)
+  let g:util_start = reltime()
+  for i in range(100)
+    call ghostgit#util#OpenBuffer('perf_test_' . i)
     call ghostgit#util#Render(['test line 1', 'test line 2'])
     silent! bd!
   endfor
-  let l:elapsed = reltimefloat(reltime(l:start))
-  Assert l:elapsed < 1.0  " Debería ser rápido incluso con muchas operaciones
+  let g:util_elapsed = reltimefloat(reltime(g:util_start))
+  Assert g:util_elapsed < 1.0
 
 Execute (Utility functions handle very long messages):
   call ghostgit#util#OpenBuffer('long_msg_test')
-  let l:very_long_message = repeat('Long message content. ', 100)
-  call ghostgit#util#Render([l:very_long_message])
-  Assert getline(1) ==# l:very_long_message
+  let g:very_long_message = repeat('Long message content. ', 100)
+  call ghostgit#util#Render([g:very_long_message])
+  Assert getline(1) ==# g:very_long_message
   silent! bd! ghostgit://long_msg_test
 
 Execute (Utility functions maintain buffer integrity):
