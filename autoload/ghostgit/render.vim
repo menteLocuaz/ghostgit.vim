@@ -118,7 +118,6 @@ function! ghostgit#render#Status(items) abort
   return l:lines
 endfunction
 
-<<<<<<< HEAD
 " Get descriptive symbol for file status
 function! s:GetStatusSymbol(status_char) abort
   " Convert status characters to more readable symbols
@@ -146,24 +145,28 @@ function! ghostgit#render#Diff(diff_lines) abort
 endfunction
 
 " Commit log renderer
-function! ghostgit#render#Log(log_entries) abort
-  let l:lines = ['Commit History:', '']
-  
-  for l:entry in a:log_entries
-    " Format each log entry
-    call add(l:lines, 'commit ' . get(l:entry, 'hash', '???'))
-    
-    if has_key(l:entry, 'refs') && !empty(l:entry.refs)
-      call add(l:lines, 'Refs: ' . join(l:entry.refs, ', '))
-    endif
-    
-    call add(l:lines, 'Author: ' . get(l:entry, 'author', 'Unknown'))
-    call add(l:lines, 'Date:   ' . get(l:entry, 'date', ''))
-    call add(l:lines, '')
-    call add(l:lines, '    ' . get(l:entry, 'message', ''))
-    call add(l:lines, '')
+function! ghostgit#render#Log(items) abort
+  let l:lines = [
+        \ '  GhostGit — Log',
+        \ '  ' . repeat('─', 40),
+        \ ''
+        \ ]
+
+  for l:item in a:items
+    let l:line = '  ' . get(l:item, 'graph', '') . get(l:item, 'hash', '???????') . ' ' . get(l:item, 'subject', '')
+    call add(l:lines, l:line)
   endfor
-  
+
+  if empty(a:items)
+    call add(l:lines, '  (no commits)')
+  endif
+
+  call extend(l:lines, [
+        \ '',
+        \ 'Help: <cr>=view commit, r=refresh, q=close',
+        \ ''
+        \ ])
+
   return l:lines
 endfunction
 
@@ -215,28 +218,3 @@ function! ghostgit#render#Generic(title, content_lines) abort
   call extend(l:lines, a:content_lines)
   return l:lines
 endfunction
-=======
-function! ghostgit#render#Log(items) abort
-  let l:lines = [
-        \ '  GhostGit — Log',
-        \ '  ' . repeat('─', 40),
-        \ ''
-        \ ]
-
-  for l:item in a:items
-    call add(l:lines, l:item.graph . l:item.hash . ' ' . l:item.subject)
-  endfor
-
-  if empty(a:items)
-    call add(l:lines, '  (no commits)')
-  endif
-
-  call extend(l:lines, [
-        \ '',
-        \ 'Help: <cr>=view commit, r=refresh, q=close',
-        \ ''
-        \ ])
-
-  return l:lines
-endfunction
->>>>>>> 26e876c (feat(log): implement :GLog with parser, renderer, and buffer lifecycle)

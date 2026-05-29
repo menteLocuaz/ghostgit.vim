@@ -2,9 +2,12 @@ if exists("b:current_syntax")
   finish
 endif
 
+" Matches the indent added in render#Log
+syn match ghostgitLogIndent '^  ' contained
+
+syn match ghostgitLogGraph  '^  [*|\\\/ ]\+' contains=ghostgitLogIndent
 syn match ghostgitLogHash   '\x\{7,\}'
-syn match ghostgitLogGraph  '^  [*|\\\/ ]\+'
-syn match ghostgitLogHeader '^  GhostGit.*$'
+syn match ghostgitLogHeader '^  GhostGit — Log'
 syn match ghostgitLogFooter '^Help:.*$'
 
 hi def link ghostgitLogHash   Identifier
