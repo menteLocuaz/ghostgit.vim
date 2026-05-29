@@ -6,7 +6,7 @@ Early-stage Vim plugin. 4 files implemented (~225 lines), 20 files are empty sca
 
 ## Structure
 
-```
+```text
 plugin/ghostgit.vim          # defines :GStatus and :Git
 autoload/ghostgit/           # functions: core.vim, git.vim, status.vim, util.vim
   job.vim state.vim blame.vim branch.vim commit.vim diff.vim log.vim remote.vim  (empty)

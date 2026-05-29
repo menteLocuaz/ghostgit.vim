@@ -310,7 +310,7 @@ Adding a new feature requires 5 locations (from `AGENTS.md`):
 Framework: [vader.vim](https://github.com/junegunn/vader.vim) (not themis).
 
 Run from project root:
-```
+```bash
 PROJ=$(pwd)
 vim -c "set rtp^=\$PROJ" -c 'Vader! test/specs/*.vader' -c 'q!'
 ```

@@ -46,7 +46,7 @@ Plug 'arancamon/ghostgit.vim'
 
 ## Architecture
 
-```
+```text
 plugin/ghostgit.vim          Entry point, command definitions
 autoload/ghostgit/
   core.vim                   Core Git API (Run, RepoRoot, CurrentBranch, IsRepo)
