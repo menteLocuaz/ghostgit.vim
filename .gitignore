@@ -1,4 +1,4 @@
-# Archivos temporales de Vim y Neovim
+# :Archivos temporales de Vim y Neovim
 *~
 *.swp
 *.swo
@@ -47,4 +47,4 @@ spec/reports/
 
 # Archivos de configuración de lenguajes o linters
 .styluaignore
-.luacheckrc
+.luacheckr
