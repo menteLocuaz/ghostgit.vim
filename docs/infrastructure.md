@@ -6,7 +6,7 @@ A minimalist Vim plugin for git operations. 11 modules implemented (~600 lines),
 
 ## Directory Structure
 
-```
+```text
 ghostgit.vim/
 ├── AGENTS.md                   Agent development guide
 ├── LICENSE                     Apache 2.0
@@ -64,7 +64,7 @@ ghostgit.vim/
 
 ## Layered Architecture
 
-```
+```text
   User Commands (:GStatus, :GLog, :Git)
          │
          ▼
@@ -108,7 +108,7 @@ Standalone UI primitives used by every other module.
 
 | Function | Purpose |
 |---|---|
-| `OpenBuffer(name, ...mods)` | Opens/reuses scratch buffer `ghostgit://<name>`. Sets `bufhidden=wipe`, `noswapfile`, `nomodifiable`, `nofoldenable`, `nowrap`, `cursorline`. Filetype → `ghostgit_<name>`. Maps `q` to close. |
+| `OpenBuffer(name, ...mods)` | Opens/reuses scratch buffer `ghostgit://<name>`. Sets `bufhidden=wipe`, `noswapfile`, `nomodifiable`, `nofoldenable`, `nowrap`, `cursorline`. File type → `ghostgit_<name>`. Maps `q` to close. |
 | `Render(lines)` | Destructive full-buffer content replacement. |
 | `Error(msg)` / `Info(msg)` / `Warn(msg)` | User-facing messages with `[ghostgit]` prefix. |
 
@@ -161,9 +161,9 @@ Global state manager. Stores repo metadata and buffer state across the session.
 | Function | Purpose |
 |---|---|
 | `Init()` | Creates `g:ghostgit_state` dict with `repos` and `buffers` sub-dicts. Idempotent. |
-| `SetRepo(root)` | Registers a repo root in state |
-| `GetRepo(...root)` | Returns repo dict (branch, git_dir, last_refresh) or `{}` |
-| `SetBuffer(name, type)` | Stores current buffer metadata (bufnr, type, repo_root) |
+| `SetRepo(root)` | Registers a repository root in state |
+| `GetRepo(...root)` | Returns repository dict (branch, git_dir, last_refresh) or `{}` |
+| `SetBuffer(name, type)` | Stores current buffer metadata (bufnr, type, repository_root) |
 | `GetBuffer(name)` | Returns buffer dict or `{}` |
 | `RemoveBuffer(bufnr)` | Removes buffer entry by buffer number |
 | `CacheItems(name, items)` | Caches structured data for a buffer (e.g. status items, log items) |
@@ -177,7 +177,7 @@ Abstracts async job execution across Vim/Neovim. Three backends: `jobstart()` (N
 | Function | Purpose |
 |---|---|
 | `IsAvailable()` | Returns 1 if true async jobs available |
-| `Run(cmd, opts)` | Runs command async. `opts`: `cwd`, `on_stdout(ch,lines)`, `on_stderr(ch,lines)`, `on_exit(job,code)`. Returns job id or `-1` (sync). |
+| `Run(cmd, opts)` | Runs command async. `opts`: `cwd`, `on_stdout(ch,lines)`, `on_stderr(ch,lines)`, `on_exit(job,code)`. Returns job ID or `-1` (sync). |
 | `Wait(job_id)` | Blocks until job finishes (poll loop where `job_wait` unavailable) |
 | `Stop(job_id)` | Kills a running job |
 
@@ -189,7 +189,7 @@ End-to-end implementation of `:GStatus`.
 
 | Function | Purpose |
 |---|---|
-| `Open()` | Entry point — checks repo, opens buffer, sets keymaps: `r` refresh, `s` stage, `u` unstage, `<cr>` diff, `cc` commit |
+| `Open()` | Entry point — checks repository, opens buffer, sets keymaps: `r` refresh, `s` stage, `u` unstage, `<cr>` diff, `cc` commit |
 | `Refresh()` | Rebuilds buffer via `git#Status` → `parser#ParseStatusLine` → `render#Status` → `util#Render` |
 | `Stage()` | Stages file under cursor via `git#Add` + refresh |
 | `Unstage()` | Unstages file under cursor via `git#Reset` + refresh |
@@ -204,7 +204,7 @@ End-to-end implementation of `:GLog`.
 
 | Function | Purpose |
 |---|---|
-| `Open()` | Entry point — checks repo, opens buffer, sets keymaps: `<cr>` view commit, `r` refresh, `q` close |
+| `Open()` | Entry point — checks repository, opens buffer, sets keymaps: `<cr>` view commit, `r` refresh, `q` close |
 | `Refresh()` | Rebuilds buffer via `git#Log` → `parser#ParseLogLine` → `render#Log` → `util#Render` |
 | `HashAtCursor()` | Returns commit hash (7+ hex chars) at cursor, or empty string |
 | `OpenCommit()` | Placeholder — echoes commit hash via `util#Info` |
@@ -226,7 +226,7 @@ Actions triggered from status/log buffer keymaps.
 
 ## Dependency Graph
 
-```
+```text
 util.vim ──── no deps
 render.vim ── no deps
 
@@ -267,7 +267,7 @@ test.vim ──── no deps (uses systemlist directly)
 
 2. **Thin Plugin / Fat Autoload** — `plugin/ghostgit.vim` is ~13 lines. Everything else is lazy-loaded.
 
-3. **`cwd` Propagation** — Every git function accepts optional `cwd` arg, enabling operations on any repo without `cd`.
+3. **`cwd` Propagation** — Every git function accepts optional `cwd` arg, enabling operations on any repository without `cd`.
 
 4. **Polymorphic `Run`** — Accepts list (programmatic) or string (`:Git` command), normalizes internally.
 
@@ -281,7 +281,7 @@ test.vim ──── no deps (uses systemlist directly)
 
 9. **Parse → Render Pipeline** — Raw git output is parsed into structured items, cached in state, then rendered. Feature modules never format raw output.
 
-10. **Test Isolation** — Every test creates a real temp git repo, runs operations, then cleans up (`ghostgit#test#Setup` / `Teardown`).
+10. **Test Isolation** — Every test creates a real temp git repository, runs operations, then cleans up (`ghostgit#test#Setup` / `Teardown`).
 
 ## Naming Conventions
 
@@ -289,7 +289,7 @@ test.vim ──── no deps (uses systemlist directly)
 |---|---|
 | Functions | `ghostgit#{module}#{function}` |
 | Buffer names | `ghostgit://<name>` |
-| Filetypes | `ghostgit_<name>` |
+| File types | `ghostgit_<name>` |
 | Messaging | `ghostgit#util#Error/Info/Warn` |
 | All functions | `abort` modifier |
 | Test files | `test/specs/<module>.vader` |
@@ -301,7 +301,7 @@ Adding a new feature requires 5 locations (from `AGENTS.md`):
 
 1. `autoload/ghostgit/<feature>.vim` — implementation
 2. `plugin/ghostgit.vim` — Ex command
-3. `ftplugin/ghostgit/<feature>.vim` — filetype settings
+3. `ftplugin/ghostgit/<feature>.vim` — file type settings
 4. `syntax/ghostgit/<feature>.vim` — syntax highlighting
 5. `test/specs/<feature>.vader` — tests
 

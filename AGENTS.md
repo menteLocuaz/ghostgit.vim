@@ -2,7 +2,7 @@
 
 ## State
 
-Early-stage Vim plugin. 4 files implemented (~225 lines), 20 files are empty scaffolds. No tests, CI, docs, or build system.
+Early-stage Vim plugin. 4 files implemented (~225 lines), 20 files are empty scaffolds. No tests, CI, docs, or build tool.
 
 ## Structure
 
