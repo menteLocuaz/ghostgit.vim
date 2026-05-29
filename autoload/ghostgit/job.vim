@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 " ============================================================================
 " ghostgit.vim - Cross-compatible Job Wrapper
 " ============================================================================
@@ -166,3 +167,170 @@ function! ghostgit#job#Status(job_id) abort
     return "none"
   endif
 endfunction
+=======
+" ============================================================================
+" ghostgit.vim - Async Job Runner
+" ============================================================================
+" Abstracts jobstart() (Neovim), job_start() (Vim8), and systemlist()
+" fallback behind a single interface.
+
+let s:job_id = 0
+let s:jobs = {}
+
+" Returns 1 if true async jobs are available, 0 if using sync fallback
+function! ghostgit#job#IsAvailable() abort
+  if has('nvim')
+    return exists('*jobstart') ? 1 : 0
+  elseif has('job')
+    return 1
+  endif
+  return 0
+endfunction
+
+" Run a command
+" a:cmd  - String or List of command args
+" a:opts - Dict with optional keys:
+"   cwd       - working directory (default getcwd())
+"   on_stdout - Funcref(channel, lines)  called with list of stdout lines
+"   on_stderr - Funcref(channel, lines)  called with list of stderr lines
+"   on_exit   - Funcref(job, exit_code) called on completion
+" Returns numeric job id (>= 0) if async, -1 if sync fallback was used
+function! ghostgit#job#Run(cmd, opts) abort
+  let l:cmd = type(a:cmd) == v:t_list ? copy(a:cmd) : [a:cmd]
+  let l:opts = a:opts
+
+  if has('nvim') && exists('*jobstart')
+    return s:NvimRun(l:cmd, l:opts)
+  elseif has('job')
+    return s:Vim8Run(l:cmd, l:opts)
+  else
+    return s:SyncRun(l:cmd, l:opts)
+  endif
+endfunction
+
+" Wait for a job to finish (no-op for sync fallback)
+function! ghostgit#job#Wait(job_id) abort
+  if a:job_id < 0 | return | endif
+
+  if has('nvim') && exists('*jobwait')
+    call jobwait([a:job_id])
+  elseif has('job') && exists('*job_wait') && has_key(s:jobs, a:job_id)
+    call job_wait(s:jobs[a:job_id].job, 30000)
+  elseif has('job') && exists('*job_status') && has_key(s:jobs, a:job_id)
+    let l:job = s:jobs[a:job_id].job
+    let l:waited = 0
+    while job_status(l:job) ==# 'run' && l:waited < 30000
+      sleep 10m
+      let l:waited += 10
+    endwhile
+  endif
+endfunction
+
+" Stop a running job (no-op for sync fallback)
+function! ghostgit#job#Stop(job_id) abort
+  if a:job_id < 0 | return | endif
+
+  if has('nvim') && exists('*jobstop')
+    call jobstop([a:job_id])
+  elseif has('job') && has_key(s:jobs, a:job_id)
+    let l:job = s:jobs[a:job_id].job
+    call job_stop(l:job)
+  endif
+endfunction
+
+" Clean up stored state for a finished/stopped job
+function! s:Cleanup(job_id) abort
+  if has_key(s:jobs, a:job_id)
+    unlet s:jobs[a:job_id]
+  endif
+endfunction
+
+" ============================================================================
+" Neovim: jobstart()
+" ============================================================================
+function! s:NvimRun(cmd, opts) abort
+  let s:job_id += 1
+  let l:id = s:job_id
+  let l:cwd = get(a:opts, 'cwd', getcwd())
+
+  let l:job_opts = {'cwd': l:cwd}
+
+  if has_key(a:opts, 'on_stdout')
+    let l:Cb = a:opts.on_stdout
+    let l:job_opts.on_stdout = {ch, data -> l:Cb(ch, data)}
+  endif
+
+  if has_key(a:opts, 'on_stderr')
+    let l:Cb = a:opts.on_stderr
+    let l:job_opts.on_stderr = {ch, data -> l:Cb(ch, data)}
+  endif
+
+  if has_key(a:opts, 'on_exit')
+    let l:Cb = a:opts.on_exit
+    let l:job_opts.on_exit = {job, code, event -> l:Cb(job, code)}
+  endif
+
+  let l:raw_id = jobstart(a:cmd, l:job_opts)
+  let s:jobs[l:id] = {'raw': l:raw_id}
+  return l:id
+endfunction
+
+" ============================================================================
+" Vim8: job_start()
+" ============================================================================
+function! s:Vim8Run(cmd, opts) abort
+  let s:job_id += 1
+  let l:id = s:job_id
+  let l:cwd = get(a:opts, 'cwd', getcwd())
+
+  let l:job_opts = {'cwd': l:cwd}
+
+  if has_key(a:opts, 'on_stdout')
+    let l:Cb = a:opts.on_stdout
+    let l:job_opts.out_cb = {ch, msg -> l:Cb(ch, [msg])}
+  endif
+
+  if has_key(a:opts, 'on_stderr')
+    let l:Cb = a:opts.on_stderr
+    let l:job_opts.err_cb = {ch, msg -> l:Cb(ch, [msg])}
+  endif
+
+  if has_key(a:opts, 'on_exit')
+    let l:Cb = a:opts.on_exit
+    let l:job_opts.exit_cb = {job, code -> l:Cb(job, code)}
+  endif
+
+  let l:job = job_start(a:cmd, l:job_opts)
+  let s:jobs[l:id] = {'job': l:job}
+  return l:id
+endfunction
+
+" ============================================================================
+" Fallback: systemlist() synchronous
+" ============================================================================
+function! s:SyncRun(cmd, opts) abort
+  let l:cwd = get(a:opts, 'cwd', getcwd())
+  let l:cmd = a:cmd
+
+  " If it's a git command, we can use -C to avoid cd
+  if type(l:cmd) == v:t_list && !empty(l:cmd) && l:cmd[0] ==# 'git'
+    let l:cmd = ['git', '-C', l:cwd] + l:cmd[1:]
+  endif
+
+  let l:output = systemlist(l:cmd)
+  let l:exit_code = v:shell_error
+
+  let l:on_stdout = get(a:opts, 'on_stdout', v:null)
+  let l:on_exit   = get(a:opts, 'on_exit', v:null)
+
+  if l:on_stdout != v:null
+    call l:on_stdout(0, l:output)
+  endif
+
+  if l:on_exit != v:null
+    call l:on_exit(-1, l:exit_code)
+  endif
+
+  return -1
+endfunction
+>>>>>>> 26e876c (feat(log): implement :GLog with parser, renderer, and buffer lifecycle)

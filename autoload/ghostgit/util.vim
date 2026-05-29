@@ -45,10 +45,14 @@ function! ghostgit#util#OpenBuffer(name, ...) abort
   setlocal nofoldenable
   setlocal cursorline
   setlocal signcolumn=no
+<<<<<<< HEAD
   
   " Set file type based on buffer name
   let l:filetype_base = split(a:name, '/')[0]
   execute 'setlocal filetype=ghostgit_' . l:filetype_base
+=======
+  execute 'setlocal filetype=ghostgit.' . split(a:name, '/')[0]
+>>>>>>> 26e876c (feat(log): implement :GLog with parser, renderer, and buffer lifecycle)
 
   " Universal mappings to close the buffer
   nnoremap <silent><buffer> q :bd!<CR>

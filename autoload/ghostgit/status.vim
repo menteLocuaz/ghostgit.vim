@@ -16,6 +16,7 @@ function! ghostgit#status#Open() abort
 
   "Refresh buffer contents
   call ghostgit#status#Refresh()
+<<<<<<< HEAD
 
   " Configure key mappings
   nnoremap <silent><buffer> <cr> :call ghostgit#status#Diff()<CR>
@@ -28,13 +29,21 @@ function! ghostgit#status#Open() abort
 
   " Add help information to the status bar
   setlocal statusline=[GhostGit]\ Status\ %f\ %=%l/%L 
+=======
+>>>>>>> 26e876c (feat(log): implement :GLog with parser, renderer, and buffer lifecycle)
 endfunction
 
 " Refresh the contents of the state buffer
 function! ghostgit#status#Refresh() abort
+<<<<<<< HEAD
   " Save current position in buffer
+=======
+  let l:bufnr = bufnr('%')
+>>>>>>> 26e876c (feat(log): implement :GLog with parser, renderer, and buffer lifecycle)
   call ghostgit#state#SaveView('status')
+  call ghostgit#util#Render(['  Loading...'])
 
+<<<<<<< HEAD
   " Get state from git and parse it
   let l:raw_lines = ghostgit#git#Status()
   let l:items = map(l:raw_lines, 'ghostgit#parser#ParseStatusLine(v:val)')
@@ -44,13 +53,48 @@ function! ghostgit#status#Refresh() abort
 
   " Render content
   let l:lines = ghostgit#render#Status(l:items)
-  call ghostgit#util#Render(l:lines)
+=======
+  let l:Callback = { lines, code -> s:OnRefreshComplete(l:bufnr, lines, code) }
+  call ghostgit#git#Status(l:Callback)
+endfunction
 
+function! s:OnRefreshComplete(bufnr, raw_lines, exit_code) abort
+  if a:exit_code != 0 && a:exit_code != -1 | return | endif
+  if !bufexists(a:bufnr) | return | endif
+
+  let l:items = map(a:raw_lines, 'ghostgit#parser#ParseStatusLine(v:val)')
+
+  " Execute within the context of the target buffer
+  call s:ExecuteInBuffer(a:bufnr, { -> s:UpdateBuffer('status', l:items) })
+endfunction
+
+function! s:UpdateBuffer(name, items) abort
+  call ghostgit#state#CacheItems(a:name, a:items)
+  let l:lines = ghostgit#render#Status(a:items)
+>>>>>>> 26e876c (feat(log): implement :GLog with parser, renderer, and buffer lifecycle)
+  call ghostgit#util#Render(l:lines)
+  call ghostgit#state#RestoreView(a:name)
+endfunction
+
+<<<<<<< HEAD
   " Restore position in buffer
   call ghostgit#state#RestoreView('status')
   
   " Display update message
   call ghostgit#util#Info('Status refreshed')
+=======
+function! s:ExecuteInBuffer(bufnr, callback) abort
+  let l:winid = bufwinid(a:bufnr)
+  if l:winid != -1
+    let l:prev_win = win_getid()
+    call win_gotoid(l:winid)
+    call a:callback()
+    call win_gotoid(l:prev_win)
+  else
+    " Buffer is hidden, use setbufline or similar if needed, 
+    " but for now we only render if visible or just skip
+  endif
+>>>>>>> 26e876c (feat(log): implement :GLog with parser, renderer, and buffer lifecycle)
 endfunction
 
 " Add file to stage

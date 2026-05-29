@@ -48,6 +48,7 @@ endfunction
 " @param {string} name - Buffer identifier
 " @param {string} type - Buffer type
 function! ghostgit#state#SetBuffer(name, type) abort
+<<<<<<< HEAD
   " Validate inputs
   if empty(a:name)
     throw 'ghostgit: Buffer name cannot be empty'
@@ -66,12 +67,20 @@ function! ghostgit#state#SetBuffer(name, type) abort
         \ 'items': [],
         \ 'repo_root': ghostgit#core#RepoRoot()
         \ }
+=======
+  let b:ghostgit_name = a:name
+  let b:ghostgit_type = a:type
+  let b:ghostgit_items = []
+  let b:ghostgit_view = {}
+  let b:ghostgit_repo_root = ghostgit#core#RepoRoot()
+>>>>>>> 26e876c (feat(log): implement :GLog with parser, renderer, and buffer lifecycle)
 endfunction
 
 " Retrieve buffer information from state
 " @param {string} name - Buffer identifier
 " @return {dict} Buffer information or empty dict
 function! ghostgit#state#GetBuffer(name) abort
+<<<<<<< HEAD
   " Validate input
   if empty(a:name)
     return {}
@@ -95,12 +104,27 @@ function! ghostgit#state#RemoveBuffer(bufnr) abort
       break
     endif
   endfor
+=======
+  " For backward compatibility or external access, we might still need to find the buffer
+  " but ideally we should be calling this from within the buffer.
+  let l:bufnr = bufnr('ghostgit://' . a:name)
+  if l:bufnr == -1 | return {} | endif
+
+  return {
+        \ 'bufnr': l:bufnr,
+        \ 'type': getbufvar(l:bufnr, 'ghostgit_type'),
+        \ 'items': getbufvar(l:bufnr, 'ghostgit_items'),
+        \ 'view': getbufvar(l:bufnr, 'ghostgit_view'),
+        \ 'repo_root': getbufvar(l:bufnr, 'ghostgit_repo_root')
+        \ }
+>>>>>>> 26e876c (feat(log): implement :GLog with parser, renderer, and buffer lifecycle)
 endfunction
 
 " Cache items for a buffer
 " @param {string} name - Buffer identifier
 " @param {list} items - Items to cache
 function! ghostgit#state#CacheItems(name, items) abort
+<<<<<<< HEAD
   " Get buffer and validate
   let l:buf = ghostgit#state#GetBuffer(a:name)
   if empty(l:buf)
@@ -109,20 +133,28 @@ function! ghostgit#state#CacheItems(name, items) abort
 
   " Update cached items
   let l:buf.items = a:items
+=======
+  let b:ghostgit_items = a:items
+>>>>>>> 26e876c (feat(log): implement :GLog with parser, renderer, and buffer lifecycle)
 endfunction
 
 " Retrieve cached items for a buffer
 " @param {string} name - Buffer identifier
 " @return {list} Cached items or empty list
 function! ghostgit#state#GetCachedItems(name) abort
+<<<<<<< HEAD
   " Get buffer and extract items
   let l:buf = ghostgit#state#GetBuffer(a:name)
   return get(l:buf, 'items', [])
+=======
+  return get(b:, 'ghostgit_items', [])
+>>>>>>> 26e876c (feat(log): implement :GLog with parser, renderer, and buffer lifecycle)
 endfunction
 
 " Save current window view for a buffer
 " @param {string} name - Buffer identifier
 function! ghostgit#state#SaveView(name) abort
+<<<<<<< HEAD
   " Get buffer and validate
   let l:buf = ghostgit#state#GetBuffer(a:name)
   if empty(l:buf)
@@ -131,15 +163,23 @@ function! ghostgit#state#SaveView(name) abort
 
   " Save current window view
   let l:buf.view = winsaveview()
+=======
+  let b:ghostgit_view = winsaveview()
+>>>>>>> 26e876c (feat(log): implement :GLog with parser, renderer, and buffer lifecycle)
 endfunction
 
 " Restore saved window view for a buffer
 " @param {string} name - Buffer identifier
 function! ghostgit#state#RestoreView(name) abort
+<<<<<<< HEAD
   " Get buffer and validate
   let l:buf = ghostgit#state#GetBuffer(a:name)
   if empty(l:buf) || empty(l:buf.view)
     return
+=======
+  if exists('b:ghostgit_view') && !empty(b:ghostgit_view)
+    call winrestview(b:ghostgit_view)
+>>>>>>> 26e876c (feat(log): implement :GLog with parser, renderer, and buffer lifecycle)
   endif
 
   " Restore saved window view

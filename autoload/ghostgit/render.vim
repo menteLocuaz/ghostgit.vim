@@ -118,6 +118,7 @@ function! ghostgit#render#Status(items) abort
   return l:lines
 endfunction
 
+<<<<<<< HEAD
 " Get descriptive symbol for file status
 function! s:GetStatusSymbol(status_char) abort
   " Convert status characters to more readable symbols
@@ -214,3 +215,28 @@ function! ghostgit#render#Generic(title, content_lines) abort
   call extend(l:lines, a:content_lines)
   return l:lines
 endfunction
+=======
+function! ghostgit#render#Log(items) abort
+  let l:lines = [
+        \ '  GhostGit — Log',
+        \ '  ' . repeat('─', 40),
+        \ ''
+        \ ]
+
+  for l:item in a:items
+    call add(l:lines, l:item.graph . l:item.hash . ' ' . l:item.subject)
+  endfor
+
+  if empty(a:items)
+    call add(l:lines, '  (no commits)')
+  endif
+
+  call extend(l:lines, [
+        \ '',
+        \ 'Help: <cr>=view commit, r=refresh, q=close',
+        \ ''
+        \ ])
+
+  return l:lines
+endfunction
+>>>>>>> 26e876c (feat(log): implement :GLog with parser, renderer, and buffer lifecycle)

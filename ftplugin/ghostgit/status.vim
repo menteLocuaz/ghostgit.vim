@@ -13,6 +13,7 @@ setlocal noswapfile
 setlocal foldmethod=manual
 setlocal foldcolumn=0
 
+<<<<<<< HEAD
 " Display options
 setlocal statusline=%!ghostgit#statusline()
 setlocal filetype=ghostgit_status
@@ -87,3 +88,11 @@ function! ghostgit#statusline() abort
   let l:repo_name = fnamemodify(ghostgit#core#RepoRoot(), ':t')
   return '[GhostGit] ' . l:repo_name . ' (' . l:branch . ')'
 endfunction
+=======
+nnoremap <silent><buffer> <cr> :call ghostgit#status#Diff()<CR>
+nnoremap <silent><buffer> s    :call ghostgit#status#Stage()<CR>
+nnoremap <silent><buffer> u    :call ghostgit#status#Unstage()<CR>
+nnoremap <silent><buffer> cc   :call ghostgit#status#Commit()<CR>
+nnoremap <silent><buffer> r    :call ghostgit#status#Refresh()<CR>
+nnoremap <silent><buffer> q    :bd!<CR>
+>>>>>>> 26e876c (feat(log): implement :GLog with parser, renderer, and buffer lifecycle)

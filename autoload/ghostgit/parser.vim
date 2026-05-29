@@ -101,6 +101,7 @@ function! ghostgit#parser#Classify(item) abort
   return 'unmodified'
 endfunction
 
+<<<<<<< HEAD
 " Parse full output of git status
 function! ghostgit#parser#ParseStatusOutput(lines) abort
   " Validate input
@@ -211,3 +212,15 @@ function! ghostgit#parser#ParseBranchInfo(line) abort
   
   return {'type': 'unknown', 'raw': a:line}
 endfunction
+=======
+function! ghostgit#parser#ParseLogLine(line) abort
+  let l:hash_start = match(a:line, '\x\{7,\}')
+  if l:hash_start < 0 | return {} | endif
+  let l:hash = matchstr(a:line, '\x\{7,\}')
+  return {
+        \ 'graph': strpart(a:line, 0, l:hash_start),
+        \ 'hash': l:hash,
+        \ 'subject': trim(strpart(a:line, l:hash_start + len(l:hash)))
+        \ }
+endfunction
+>>>>>>> 26e876c (feat(log): implement :GLog with parser, renderer, and buffer lifecycle)

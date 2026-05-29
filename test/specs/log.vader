@@ -1,0 +1,99 @@
+" ============================================================================
+" ghostgit.vim - Log Viewer Tests
+" ============================================================================
+
+" === Parser Tests ===
+
+Execute (ParseLogLine parses simple commit):
+  let g:item = ghostgit#parser#ParseLogLine('1a2b3c4 Fix the bug')
+  AssertEqual '1a2b3c4', g:item.hash
+  AssertEqual 'Fix the bug', g:item.subject
+  AssertEqual '', g:item.graph
+
+Execute (ParseLogLine parses graph commit):
+  let g:item = ghostgit#parser#ParseLogLine('* 1a2b3c4 Fix the bug')
+  AssertEqual '1a2b3c4', g:item.hash
+  AssertEqual 'Fix the bug', g:item.subject
+  AssertEqual '* ', g:item.graph
+
+Execute (ParseLogLine parses decorated commit):
+  let g:item = ghostgit#parser#ParseLogLine('* 1a2b3c4 Fix the bug (HEAD -> main)')
+  AssertEqual '1a2b3c4', g:item.hash
+  Assert g:item.subject =~# 'Fix the bug'
+
+Execute (ParseLogLine parses branch graph line):
+  let g:item = ghostgit#parser#ParseLogLine('| * 9a0b1c2 Branch work')
+  AssertEqual '9a0b1c2', g:item.hash
+  AssertEqual 'Branch work', g:item.subject
+  AssertEqual '| * ', g:item.graph
+
+Execute (ParseLogLine returns empty for continuation line):
+  let g:item = ghostgit#parser#ParseLogLine('|/')
+  AssertEqual {}, g:item
+
+Execute (ParseLogLine returns empty for empty line):
+  let g:item = ghostgit#parser#ParseLogLine('')
+  AssertEqual {}, g:item
+
+" === Render Tests ===
+
+Execute (render#Log with empty items):
+  let g:lines = ghostgit#render#Log([])
+  Assert len(g:lines) >= 4
+  Assert g:lines[0] =~# 'GhostGit'
+  Assert g:lines[-2] =~# 'Help:'
+  Assert g:lines[3] =~# 'no commits'
+
+Execute (render#Log with single item):
+  let g:items = [{'graph': '* ', 'hash': '1a2b3c4', 'subject': 'Fix bug'}]
+  let g:lines = ghostgit#render#Log(g:items)
+  let g:joined = join(g:lines, "\n")
+  Assert g:joined =~# '1a2b3c4'
+  Assert g:joined =~# 'Fix bug'
+
+" === HashAtCursor Tests ===
+
+Execute (HashAtCursor returns hash on commit line):
+  new
+  call setline(1, ['header', '* 1a2b3c4 Fix bug'])
+  call cursor(2, 1)
+  AssertEqual '1a2b3c4', ghostgit#log#HashAtCursor()
+  close!
+
+Execute (HashAtCursor returns empty on blank line):
+  new
+  call setline(1, ['header', ''])
+  call cursor(2, 1)
+  AssertEqual '', ghostgit#log#HashAtCursor()
+  close!
+
+" === Integration Tests ===
+
+Before:
+  call ghostgit#state#Init()
+  let g:repo = ghostgit#test#Setup()
+  let g:cwd = getcwd()
+
+After:
+  call ghostgit#test#Teardown(g:repo)
+  execute 'cd ' . fnameescape(g:cwd)
+  silent! bd! ghostgit://log
+
+Execute (Open log buffer in repo):
+  execute 'cd ' . fnameescape(g:repo)
+  call ghostgit#log#Open()
+  Assert bufname('%') =~# 'ghostgit://log'
+  Assert getline(4) =~# 'initial'
+
+Execute (Open log buffer outside repo does not error):
+  let g:plain = tempname()
+  call mkdir(g:plain, 'p')
+  execute 'cd ' . fnameescape(g:plain)
+  let g:caught = 0
+  try
+    call ghostgit#log#Open()
+  catch
+    let g:caught = 1
+  endtry
+  call delete(g:plain, 'rf')
+  Assert !g:caught

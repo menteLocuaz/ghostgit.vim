@@ -4,6 +4,7 @@
 
 " Get repository status
 function! ghostgit#git#Status(...) abort
+<<<<<<< HEAD
   " Get optional working directory
   let l:cwd = get(a:000, 0, '')
   
@@ -15,6 +16,23 @@ function! ghostgit#git#Status(...) abort
   
   " Run the `git status` command with options to get complete information
   return ghostgit#core#Run(['status', '--short', '--branch'], l:cwd)
+=======
+  let l:callback = get(a:000, 0, v:null)
+  let l:cwd = get(a:000, 1, '')
+
+  let l:args = ['status', '--short', '--branch']
+
+  if l:callback != v:null
+    let l:stdout = []
+    return ghostgit#job#Run(['git'] + l:args, {
+          \ 'cwd': l:cwd,
+          \ 'on_stdout': {ch, data -> extend(l:stdout, data)},
+          \ 'on_exit': {job, code -> l:callback(l:stdout, code)}
+          \ })
+  endif
+
+  return ghostgit#core#Run(l:args, l:cwd)
+>>>>>>> 26e876c (feat(log): implement :GLog with parser, renderer, and buffer lifecycle)
 endfunction
 
 " Add file to staging area
@@ -90,6 +108,7 @@ function! ghostgit#git#Diff(file, ...) abort
   return ghostgit#core#Run(l:args, l:cwd)
 endfunction
 
+<<<<<<< HEAD
 " Get files in staging
 function! ghostgit#git#GetStagedFiles(...) abort
   let l:cwd = get(a:000, 0, '')
@@ -254,3 +273,22 @@ function! ghostgit#git#Pull(...) abort
   " Run command
   return ghostgit#core#Run(l:args, l:cwd)
 endfunction
+=======
+function! ghostgit#git#Log(...) abort
+  let l:callback = get(a:000, 0, v:null)
+  let l:cwd = get(a:000, 1, '')
+
+  let l:args = ['log', '--oneline', '--decorate', '--graph', '-100']
+
+  if l:callback != v:null
+    let l:stdout = []
+    return ghostgit#job#Run(['git'] + l:args, {
+          \ 'cwd': l:cwd,
+          \ 'on_stdout': {ch, data -> extend(l:stdout, data)},
+          \ 'on_exit': {job, code -> l:callback(l:stdout, code)}
+          \ })
+  endif
+
+  return ghostgit#core#Run(l:args, l:cwd)
+endfunction
+>>>>>>> 26e876c (feat(log): implement :GLog with parser, renderer, and buffer lifecycle)

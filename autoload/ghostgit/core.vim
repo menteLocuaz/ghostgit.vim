@@ -4,6 +4,7 @@
 
 " Run a git command and return output
 function! ghostgit#core#Run(args, ...) abort
+<<<<<<< HEAD
   " Get the working directory
   let l:cwd = get(a:000, 0, '')
   if empty(l:cwd)
@@ -17,12 +18,18 @@ function! ghostgit#core#Run(args, ...) abort
   endif
 
 " Build git command
+=======
+  let l:cwd = get(a:000, 0, getcwd())
+
+  let l:cmd = ['git', '-C', l:cwd]
+>>>>>>> 26e876c (feat(log): implement :GLog with parser, renderer, and buffer lifecycle)
   if type(a:args) == v:t_list
-    let l:cmd = ['git'] + a:args
+    let l:cmd += a:args
   else
-    let l:cmd = ['git', a:args]
+    call add(l:cmd, a:args)
   endif
 
+<<<<<<< HEAD
 " Use temporary directory for command execution
   let l:saved_cwd = getcwd()
   try
@@ -33,6 +40,13 @@ function! ghostgit#core#Run(args, ...) abort
     " Restore directory in case of error
     execute 'cd ' . fnameescape(l:saved_cwd)
     call ghostgit#util#Error('Failed to execute git command: ' . v:exception)
+=======
+  let l:output = systemlist(l:cmd)
+  let l:exit = v:shell_error
+
+  if l:exit != 0
+    call ghostgit#util#Error(join(l:output, "\n"))
+>>>>>>> 26e876c (feat(log): implement :GLog with parser, renderer, and buffer lifecycle)
     return []
   finally
     " Always restore the original directory

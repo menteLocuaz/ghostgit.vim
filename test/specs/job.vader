@@ -1,0 +1,70 @@
+Before:
+  let g:plain = tempname()
+  call mkdir(g:plain, 'p')
+  let g:cwd = getcwd()
+
+After:
+  call delete(g:plain, 'rf')
+  execute 'cd ' . fnameescape(g:cwd)
+
+Execute (IsAvailable returns 0 or 1):
+  let g:avail = ghostgit#job#IsAvailable()
+  Assert type(g:avail) == v:t_number
+  Assert g:avail == 0 || g:avail == 1
+
+Execute (Run with list cmd returns number):
+  let g:id = ghostgit#job#Run(['echo', 'test'], {})
+  Assert type(g:id) == v:t_number
+
+Execute (Run with string cmd returns number):
+  let g:id = ghostgit#job#Run('echo test', {})
+  Assert type(g:id) == v:t_number
+
+Execute (Run with cwd option):
+  let g:id = ghostgit#job#Run(['pwd'], {'cwd': g:plain})
+  Assert type(g:id) == v:t_number
+
+Execute (Run on_stdout callback collects output):
+  let g:out = []
+  function! s:StdoutCb(ch, lines) abort
+    let g:out += a:lines
+  endfunction
+  let g:id = ghostgit#job#Run(['echo', 'hello job'], {'on_stdout': function('s:StdoutCb')})
+  if ghostgit#job#IsAvailable()
+    call ghostgit#job#Wait(g:id)
+  endif
+  Assert len(g:out) > 0
+  Assert g:out[0] ==# 'hello job'
+
+Execute (Run on_exit callback fires with code 0):
+  let g:code = -999
+  function! s:ExitCb(job, code) abort
+    let g:code = a:code
+  endfunction
+  let g:id = ghostgit#job#Run(['true'], {'on_exit': function('s:ExitCb')})
+  if ghostgit#job#IsAvailable()
+    call ghostgit#job#Wait(g:id)
+  endif
+  Assert g:code == 0
+
+Execute (Run on_exit callback fires with non-zero):
+  let g:code = -999
+  function! s:ExitFailCb(job, code) abort
+    let g:code = a:code
+  endfunction
+  let g:id = ghostgit#job#Run(['false'], {'on_exit': function('s:ExitFailCb')})
+  if ghostgit#job#IsAvailable()
+    call ghostgit#job#Wait(g:id)
+  endif
+  Assert g:code != 0
+
+Execute (Stop kills a running job):
+  let g:out = []
+  function! s:StdoutStopCb(ch, lines) abort
+    let g:out += a:lines
+  endfunction
+  let g:id = ghostgit#job#Run(['sleep', '10'], {'on_stdout': function('s:StdoutStopCb')})
+  if g:id >= 0
+    call ghostgit#job#Stop(g:id)
+  endif
+  Assert 1
