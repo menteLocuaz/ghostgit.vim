@@ -4,31 +4,31 @@ A minimalist Git UI plugin for Vim and Neovim. Provides scratch-buffer interface
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `:GStatus` | Open repository status (short + branch) |
-| `:GLog` | Open commit log (oneline + graph) |
-| `:Git <args>` | Run an arbitrary git command |
+| Command       | Description                             |
+| ------------- | --------------------------------------- |
+| `:GStatus`    | Open repository status (short + branch) |
+| `:GLog`       | Open commit log (oneline + graph)       |
+| `:Git <args>` | Run an arbitrary git command            |
 
 ### Status buffer keymaps
 
-| Key | Action |
-|-----|--------|
-| `s` | Stage file under cursor |
-| `u` | Unstage file under cursor |
-| `<cr>` | Open diff for file under cursor |
-| `cc` | Open commit window |
-| `ca` | Amend last commit |
-| `r` | Refresh status |
-| `q` / `<C-c>` | Close buffer |
+| Key           | Action                          |
+| ------------- | ------------------------------- |
+| `s`           | Stage file under cursor         |
+| `u`           | Unstage file under cursor       |
+| `<cr>`        | Open diff for file under cursor |
+| `cc`          | Open commit window              |
+| `ca`          | Amend last commit               |
+| `r`           | Refresh status                  |
+| `q` / `<C-c>` | Close buffer                    |
 
 ### Log buffer keymaps
 
-| Key | Action |
-|-----|--------|
-| `<cr>` | View commit details (placeholder) |
-| `r` | Refresh log |
-| `q` / `<C-c>` | Close buffer |
+| Key           | Action                            |
+| ------------- | --------------------------------- |
+| `<cr>`        | View commit details (placeholder) |
+| `r`           | Refresh log                       |
+| `q` / `<C-c>` | Close buffer                      |
 
 ## Installation
 
@@ -36,7 +36,7 @@ With any plugin manager (vim-plug, packer, lazy.nvim, etc.):
 
 ```vim
 " vim-plug
-Plug 'arancamon/ghostgit.vim'
+Plug 'menteLocuaz/ghostgit.vim'
 ```
 
 ## Requirements

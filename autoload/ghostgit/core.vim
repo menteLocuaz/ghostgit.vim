@@ -19,6 +19,12 @@ function! ghostgit#core#Run(args, ...) abort
     return []
   endif
 
+  " Verify that we have arguments to run
+  if empty(a:args) || (type(a:args) == v:t_string && a:args =~# '^\s*$')
+    call ghostgit#util#Error('Git command required')
+    return []
+  endif
+
   " Build git command using -C to avoid global cd side effects
   let l:cmd = ['git', '-C', l:cwd]
   if type(a:args) == v:t_list
@@ -34,12 +40,63 @@ function! ghostgit#core#Run(args, ...) abort
   if l:exit != 0
     " For some commands, the exit code != 0 may be valid
     " For example, 'git rev-parse --verify HEAD' fails on empty repositories
-    " But in most cases, we show an error
-    call ghostgit#util#Error(join(l:output, "\n"))
+    " But in most cases, we show an error (unless silent is requested)
+    let l:opts = get(a:000, 1, {})
+    let l:silent = type(l:opts) == v:t_dict ? get(l:opts, 'silent', 0) : 0
+    
+    if !l:silent
+      call ghostgit#util#Error(join(l:output, "\n"))
+    endif
     return []
   endif
 
   return l:output
+endfunction
+
+" Execute git command with smart output handling (Fugitive-style)
+function! ghostgit#core#Execute(args) abort
+  " If no arguments, open GStatus
+  if empty(trim(a:args))
+    call ghostgit#status#Open()
+    return
+  endif
+
+  let l:arg_list = split(a:args)
+  let l:cmd_name = get(l:arg_list, 0, '')
+  let l:output = ghostgit#core#Run(l:arg_list)
+
+  if empty(l:output) | return | endif
+
+  " Decide how to display output
+  " If it's more than 10 lines or a command that produces structured output
+  if len(l:output) > 10 || l:cmd_name =~# '^\(diff\|show\|log\|blame\|status\)$'
+    call ghostgit#util#OpenBuffer('output')
+    
+    " Set syntax based on command
+    if l:cmd_name ==# 'diff' || l:cmd_name ==# 'show'
+      setlocal filetype=diff
+    elseif l:cmd_name ==# 'log'
+      setlocal filetype=git
+    elseif l:cmd_name ==# 'status'
+      setlocal filetype=ghostgit_status
+    endif
+
+    call ghostgit#util#Render(l:output)
+    nnoremap <silent><buffer> q :bd!<CR>
+  else
+    " For short output, just echo it
+    for l:line in l:output
+      call ghostgit#util#Info(l:line)
+    endfor
+  endif
+endfunction
+
+" Basic autocompletion for :Git command
+function! ghostgit#core#Complete(A, L, P) abort
+  let l:cmds = ['add', 'bisect', 'branch', 'checkout', 'clone', 'commit', 
+        \ 'diff', 'fetch', 'grep', 'init', 'log', 'merge', 'mv', 'pull', 
+        \ 'push', 'rebase', 'reset', 'restore', 'rm', 'show', 'status', 'switch', 'tag']
+  return filter(l:cmds, 'v:val =~# "^" . a:A')
 endfunction
 
 " Return root from current repo
@@ -104,7 +161,7 @@ function! ghostgit#core#IsRepo(...) abort
   let l:cwd = get(a:000, 0, getcwd())
 
   " Run the git command to check if it's a repository
-  let l:output = ghostgit#core#Run(['rev-parse', '--git-dir'], l:cwd)
+  let l:output = ghostgit#core#Run(['rev-parse', '--git-dir'], l:cwd, {'silent': 1})
   return !empty(l:output)
 endfunction
 

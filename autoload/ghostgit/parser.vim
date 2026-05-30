@@ -102,7 +102,13 @@ endfunction
 
 " Parse full `git status --short --branch` output
 function! ghostgit#parser#ParseStatusOutput(lines) abort
-  let l:result = {'branch': '', 'items': []}
+  let l:result = {
+        \ 'branch': '',
+        \ 'upstream': '',
+        \ 'ahead': 0,
+        \ 'behind': 0,
+        \ 'items': []
+        \ }
 
   if empty(a:lines)
     return l:result
@@ -110,21 +116,32 @@ function! ghostgit#parser#ParseStatusOutput(lines) abort
 
   for l:line in a:lines
     if l:line =~# '^## '
-      let l:branch = substitute(l:line, '^## ', '', '')
-      let l:branch = substitute(l:branch, '\.\.\..*', '', '')
-      let l:result.branch = l:branch
-    elseif l:line =~# '^#'
-      " Branch detail lines - parse with ParseBranchInfo
-      let l:info = ghostgit#parser#ParseBranchInfo(l:line)
-      if !empty(l:info)
-        if l:info.type ==# 'current_branch' && empty(l:result.branch)
-          let l:result.branch = l:info.branch
+      " Parse branch line: ## master...origin/master [ahead 1, behind 2]
+      let l:branch_info = substitute(l:line, '^## ', '', '')
+      
+      " Extract ahead/behind
+      let l:ab_match = matchlist(l:branch_info, '\[ahead \(\d\+\)\%(, behind \(\d\+\)\)\?\]')
+      if !empty(l:ab_match)
+        let l:result.ahead = str2nr(l:ab_match[1])
+        let l:result.behind = str2nr(get(l:ab_match, 2, '0'))
+      else
+        let l:behind_only = matchlist(l:branch_info, '\[behind \(\d\+\)\]')
+        if !empty(l:behind_only)
+          let l:result.behind = str2nr(l:behind_only[1])
         endif
-        continue
       endif
+
+      " Extract branch and upstream
+      let l:names = split(substitute(l:branch_info, '\s\+\[.*\]$', '', ''), '\.\.\.')
+      let l:result.branch = get(l:names, 0, '')
+      let l:result.upstream = get(l:names, 1, '')
+      
+    elseif l:line =~# '^#'
+      " Skip other comment lines for now or handle them if needed
+      continue
     elseif !empty(l:line)
       let l:item = ghostgit#parser#ParseStatusLine(l:line)
-      if !empty(l:item)
+      if !empty(l:item) && l:item.type ==# 'file_change'
         call add(l:result.items, l:item)
       endif
     endif

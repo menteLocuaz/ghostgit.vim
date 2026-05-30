@@ -32,14 +32,14 @@ function! ghostgit#status#Refresh() abort
   " Get status synchronously
   let l:raw_lines = ghostgit#git#Status(l:repo_root)
 
-  " Parse status items
-  let l:items = map(l:raw_lines, 'ghostgit#parser#ParseStatusLine(v:val)')
+  " Parse status into a structured dict
+  let l:status_data = ghostgit#parser#ParseStatusOutput(l:raw_lines)
 
   " Cache items for later use
-  call ghostgit#state#CacheItems('status', l:items)
+  call ghostgit#state#CacheItems('status', l:status_data.items)
   
   " Render content
-  let l:lines = ghostgit#render#Status(l:items)
+  let l:lines = ghostgit#render#Status(l:status_data)
   call ghostgit#util#Render(l:lines)
   
   " Restore position in buffer
