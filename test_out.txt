@@ -1,0 +1,3 @@
+
+Error detected while processing command line:
+E492: Not an editor command: Vader! test/specs/core.vader

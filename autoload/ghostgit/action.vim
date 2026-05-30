@@ -1,89 +1,88 @@
 " ============================================================================
-" ghostgit.vim - Actions
+" ghostgit.vim - Action Dispatcher
 " ============================================================================
+
+" Dispatch an action based on the current context
+function! ghostgit#action#Dispatch(action_name, ...) abort
+  let l:ctx = s:GetContext()
+  let l:target = get(a:000, 0, '')
+
+  if l:ctx ==# 'status'
+    return s:DispatchStatus(a:action_name, l:target)
+  elseif l:ctx ==# 'log'
+    return s:DispatchLog(a:action_name, l:target)
+  endif
+
+  call ghostgit#util#Error('No action handler for context: ' . l:ctx)
+endfunction
+
+" Get current buffer context based on filetype
+function! s:GetContext() abort
+  let l:ft = &filetype
+  if l:ft =~# '^ghostgit_'
+    return substitute(l:ft, '^ghostgit_', '', '')
+  endif
+  return 'unknown'
+endfunction
+
+" Handle actions in status buffer
+function! s:DispatchStatus(action, target) abort
+  if a:action ==# 'open'
+    return ghostgit#action#OpenFile()
+  elseif a:action ==# 'vsplit'
+    return ghostgit#action#VSplitFile()
+  elseif a:action ==# 'diff'
+    return ghostgit#status#Diff()
+  elseif a:action ==# 'stage'
+    return ghostgit#status#Stage()
+  elseif a:action ==# 'unstage'
+    return ghostgit#status#Unstage()
+  endif
+endfunction
+
+" Handle actions in log buffer
+function! s:DispatchLog(action, target) abort
+  " To be implemented
+  call ghostgit#util#Info('Action ' . a:action . ' not yet implemented for log')
+endfunction
 
 " Open the file under cursor in the current window
 function! ghostgit#action#OpenFile() abort
-  " Get the file path from the current line
   let l:file = s:GetCurrentFile()
+  if empty(l:file) | return | endif
   
-  " Validate file path
-  if empty(l:file)
-    echohl WarningMsg
-    echom 'ghostgit: No file found on current line'
-    echohl None
-    return
-  endif
-  
-  " Check if file exists
   if !filereadable(l:file)
-    echohl WarningMsg
-    echom 'ghostgit: File not found: ' . l:file
-    echohl None
+    call ghostgit#util#Warn('File not found: ' . l:file)
     return
   endif
   
-  " Open the file
-  try
-    execute 'edit! ' . fnameescape(l:file)
-  catch
-    echohl ErrorMsg
-    echom 'ghostgit: Failed to open file: ' . l:file . ' (' . v:exception . ')'
-    echohl None
-  endtry
+  execute 'edit ' . fnameescape(l:file)
 endfunction
 
 " Open the file under cursor in a vertical split
 function! ghostgit#action#VSplitFile() abort
-  " Get the file path from the current line
   let l:file = s:GetCurrentFile()
+  if empty(l:file) | return | endif
   
-  " Validate file path
-  if empty(l:file)
-    echohl WarningMsg
-    echom 'ghostgit: No file found on current line'
-    echohl None
-    return
-  endif
-  
-  " Check if file exists
   if !filereadable(l:file)
-    echohl WarningMsg
-    echom 'ghostgit: File not found: ' . l:file
-    echohl None
+    call ghostgit#util#Warn('File not found: ' . l:file)
     return
   endif
   
-  " Open the file in a vertical split
-  try
-    execute 'vsplit! ' . fnameescape(l:file)
-  catch
-    echohl ErrorMsg
-    echom 'ghostgit: Failed to open file in vertical split: ' . l:file . ' (' . v:exception . ')'
-    echohl None
-  endtry
+  execute 'vsplit ' . fnameescape(l:file)
 endfunction
 
-" Extract file path from the current line
-" @return {string} File path or empty string if not found
+" Extract file path from the current line (status buffer specific)
 function! s:GetCurrentFile() abort
-  " Get the current line
   let l:line = getline('.')
   
-  " Validate line content
-  if empty(l:line)
-    return ''
+  " Match files in status buffer: '  M filename'
+  let l:file = matchstr(l:line, '^  .. \zs.*')
+  
+  if empty(l:file)
+    " Try untracked: '  ?? filename'
+    let l:file = matchstr(l:line, '^  ?? \zs.*')
   endif
-  
-  " Extract file path using pattern matching
-  " Pattern explanation:
-  " ^\s*     - Match beginning of line with optional whitespace
-  " .\{2}    - Match exactly 2 characters (status indicators)
-  " \s\+     - Match one or more whitespace characters
-  " \zs      - Start match here (exclude previous pattern from result)
-  " .*       - Match rest of line (file path)
-  let l:file = matchstr(l:line, '^\s*.\{2}\s\+\zs.*')
-  
-  " Trim whitespace and return
+
   return trim(l:file)
 endfunction

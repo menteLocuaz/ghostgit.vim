@@ -10,4 +10,5 @@ call ghostgit#state#Init()
 
 command! GStatus call ghostgit#status#Open()
 command! GLog   call ghostgit#log#Open()
-command! -nargs=* Git call ghostgit#core#Run(split(<q-args>))
+command! -nargs=* -complete=customlist,ghostgit#core#Complete Git call ghostgit#core#Execute(<q-args>)
+command! -nargs=* -complete=customlist,ghostgit#core#Complete G   call ghostgit#core#Execute(<q-args>)

@@ -40,7 +40,7 @@ function! ghostgit#util#OpenBuffer(name, ...) abort
   setlocal signcolumn=no
   
   " Set base file type for GhostGit buffers
-  setlocal filetype=ghostgit
+  execute 'setlocal filetype=ghostgit_' . a:name
 
   " Universal mappings to close the buffer
   nnoremap <silent><buffer> q :bd!<CR>

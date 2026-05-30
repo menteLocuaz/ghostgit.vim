@@ -3,15 +3,16 @@
 " ============================================================================
 
 " Render repository status
-function! ghostgit#render#Status(items) abort
-  " Initialize collections for different file types
+" @param {dict|list} status - Status dictionary from ParseStatusOutput or list of items
+function! ghostgit#render#Status(status) abort
+  let l:items = type(a:status) == v:t_dict ? a:status.items : a:status
   let l:staged     = []
   let l:unstaged   = []
   let l:untracked  = []
   let l:conflicted = []
 
   " Classify elements by state
-  for l:item in a:items
+  for l:item in l:items
     let l:class = ghostgit#parser#Classify(l:item)
     if l:class == 'staged'
       call add(l:staged, l:item)
@@ -25,15 +26,27 @@ function! ghostgit#render#Status(items) abort
   endfor
 
   " Get repository information
-  let l:branch = ghostgit#core#CurrentBranch()
+  let l:branch = type(a:status) == v:t_dict ? a:status.branch : ghostgit#core#CurrentBranch()
   let l:repo_root = ghostgit#core#RepoRoot()
-  
-  " Extract only the repository directory name
   let l:repo_name = fnamemodify(l:repo_root, ':t')
   
+  " Build branch status string
+  let l:branch_status = empty(l:branch) ? '(no branch)' : l:branch
+  if type(a:status) == v:t_dict
+    if !empty(a:status.upstream)
+      let l:branch_status .= '...[' . a:status.upstream . ']'
+    endif
+    if a:status.ahead > 0 || a:status.behind > 0
+      let l:ab = []
+      if a:status.ahead > 0 | call add(l:ab, '+' . a:status.ahead) | endif
+      if a:status.behind > 0 | call add(l:ab, '-' . a:status.behind) | endif
+      let l:branch_status .= ' (' . join(l:ab, ', ') . ')'
+    endif
+  endif
+
   " Build header lines
   let l:lines = [
-        \ '  GhostGit — ' . (empty(l:branch) ? '(no branch)' : l:branch) . ' [' . l:repo_name . ']',
+        \ '  GhostGit — ' . l:branch_status . ' [' . l:repo_name . ']',
         \ '  ' . repeat('─', winwidth(0) > 60 ? 60 : winwidth(0) - 10),
         \ ''
         \ ]
