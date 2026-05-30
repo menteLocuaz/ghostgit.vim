@@ -19,3 +19,9 @@ nnoremap <silent><buffer> u    :call ghostgit#action#Dispatch('unstage')<CR>
 nnoremap <silent><buffer> cc   :call ghostgit#status#Commit()<CR>
 nnoremap <silent><buffer> r    :call ghostgit#status#Refresh()<CR>
 nnoremap <silent><buffer> q    :bd!<CR>
+
+" Automatic reload on enter
+augroup ghostgit_status
+  autocmd! * <buffer>
+  autocmd BufEnter <buffer> call ghostgit#status#Refresh()
+augroup END
