@@ -3,6 +3,9 @@
 " ============================================================================
 
 Before:
+  " Deshabilitar async para mantener tests síncronos
+  let g:ghostgit_async_disable = 1
+
   " Inicializar estado de GhostGit
   call ghostgit#state#Init()
   

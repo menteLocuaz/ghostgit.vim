@@ -44,7 +44,7 @@ syn match GhostGitBranchCurrent '^\* .*'
 syn match GhostGitBranchRemote '^  origin/.*'
 
 " Separators and special lines
-syn match GhostGitSeparator '^  \%(─\+\|\=\+\)$'
+syn match GhostGitSeparator '^  [─=]\+$'
 
 " Header and footer
 syn match GhostGitHeader '^  GhostGit.*$'

@@ -70,6 +70,7 @@ Execute (HashAtCursor returns empty on blank line):
 " === Integration Tests ===
 
 Before:
+  let g:ghostgit_async_disable = 1
   call ghostgit#state#Init()
   let g:repo = ghostgit#test#Setup()
   let g:cwd = getcwd()

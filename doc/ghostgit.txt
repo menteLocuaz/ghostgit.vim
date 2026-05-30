@@ -1,0 +1,492 @@
+*ghostgit.txt*   GhostGit                              *ghostgit*
+
+================================================================================
+GHOSTGIT                                      *ghostgit-plugin* *ghostgit-intro*
+================================================================================
+
+Version:  0.1.0
+License:  MIT
+GitHub:   https://github.com/anomalyco/ghostgit.vim
+
+A lightweight Git interface for Vim/Neovim with scratch buffers, async job
+execution, and familiar keybindings.
+
+==============================================================================
+Commands                                           *ghostgit-commands*
+==============================================================================
+
+:GStatus                                          *:GStatus* *ghostgit-cmd-status*
+    Open the status scratch buffer showing `git status --short --branch`
+    output.  The buffer refreshes asynchronously.
+
+:GLog                                             *:GLog* *ghostgit-cmd-log*
+    Open the commit-log buffer showing the last 100 commits in
+    oneline/decorate/graph format.  Refreshes asynchronously.
+
+:GBlame                                           *:GBlame* *ghostgit-cmd-blame*
+    Open a blame buffer for the current file (synchronous).
+
+:GCommit [opts]                                   *:GCommit* *ghostgit-cmd-commit*
+    Open a commit-message buffer.  Passing `--amend` starts an amend commit.
+    Finish with `<C-c><C-c>`.
+
+:GDiff [args]                                     *:GDiff* *ghostgit-cmd-diff*
+    Open a diff buffer for the current file.  Additional arguments
+    (e.g. `--cached`) are forwarded to `git diff`.
+
+:GBrowse                                          *:GBrowse* *ghostgit-cmd-browse*
+    Open the repository remote URL in your default browser.  Converts
+    SSH-style `git@` URLs to HTTPS automatically.
+
+:Git {args}                                       *:Git* *ghostgit-cmd-git*
+:G {args}                                          *:G* *ghostgit-cmd-g*
+    Run an arbitrary git command.  Tab-completion is provided for common
+    subcommands.  Output longer than 10 lines is shown in a scratch buffer;
+    shorter output is echoed.
+
+==============================================================================
+Status Buffer                                     *ghostgit-status*
+==============================================================================
+
+Buffer name:         `ghostgit://status`
+Filetype:            `ghostgit_status`
+Opened by:           `:GStatus`
+
+The status buffer is the central hub of GhostGit.  It displays the current
+working-tree state, organised into sections:
+
+    Header              branch name, upstream tracking (+ahead/-behind),
+                        repo name, git execution time
+    Changes to be    }  staged files (index state)
+    committed:       }
+    Changes not         unstaged modified files (worktree state)
+    staged for commit:
+    Untracked files:    new files not yet tracked by Git
+    Conflicting files:  files with merge conflicts
+    Summary:            summary counts per section
+    Legend:             status character reference
+    Commands:           available keymaps
+
+Keymaps ~
+                                                    *ghostgit-status-mappings*
+    <CR>          Open diff for the file under cursor
+    o             Open the file under cursor in the current window
+    v             Open the file under cursor in a vertical split
+    s             Stage the file under cursor
+    u             Unstage the file under cursor
+    cc            Open the commit-message buffer
+    r             Refresh the status buffer asynchronously
+    q             Close the status buffer
+
+The buffer refreshes automatically on `BufEnter` via the ftplugin autocmd.
+
+==============================================================================
+Log Buffer                                        *ghostgit-log*
+==============================================================================
+
+Buffer name:         `ghostgit://log`
+Filetype:            `ghostgit_log`
+Opened by:           `:GLog`
+
+Displays the last 100 commits with graph decorations.
+
+    Header              "GhostGit — Log" with git execution time
+    Commit list         graph markers, commit hash (7+ hex chars), subject
+    Help:               available keymaps
+
+Keymaps ~
+                                                    *ghostgit-log-mappings*
+    <CR>          View the commit under cursor via `git show`
+    r             Refresh the log buffer
+    q             Close the log buffer
+
+==============================================================================
+Diff Buffer                                       *ghostgit-diff*
+==============================================================================
+
+Buffer name:         `ghostgit://diff/{file}`
+Filetype:            `diff`
+Opened by:           `:GDiff`, `<CR>` in status buffer
+
+Shows `git diff` output for a specific file or staged changes (`:GDiff --cached`).
+
+Keymaps ~
+                                                    *ghostgit-diff-mappings*
+    q             Close the diff buffer
+    r             Refresh the diff content
+    <C-c>         Close the diff buffer
+
+==============================================================================
+Blame Buffer                                      *ghostgit-blame*
+==============================================================================
+
+Buffer name:         `ghostgit://blame/{file}`
+Filetype:            `ghostgit_blame`
+Opened by:           `:GBlame`
+
+Shows `git blame` output for the current file.
+
+Keymaps ~
+                                                    *ghostgit-blame-mappings*
+    q             Close the blame buffer
+
+==============================================================================
+Commit Buffer                                     *ghostgit-commit*
+==============================================================================
+
+Buffer name:         `.git/COMMIT_EDITMSG`
+Filetype:            `gitcommit`
+Opened by:           `:GCommit`, `cc` in status buffer
+
+Provides a buffer for writing commit messages.
+
+Keymaps ~
+                                                    *ghostgit-commit-mappings*
+    <C-c><C-c>    Save the commit message and execute `git commit`
+    q             Close the commit buffer without committing
+
+The commit buffer is automatically saved before the commit runs.  After a
+successful commit, the status buffer (if open) is refreshed.
+
+==============================================================================
+Branch Buffer                                     *ghostgit-branch*
+==============================================================================
+
+Buffer name:         `ghostgit://branch`
+Filetype:            `ghostgit_branch`
+Opened by:           `ghostgit#branch#Open()` (no direct `:G` command yet)
+
+Lists local and remote branches.
+
+Keymaps ~
+                                                    *ghostgit-branch-mappings*
+    <CR>          Checkout the branch under cursor
+    q             Close the branch buffer
+
+==============================================================================
+Output Buffer                                     *ghostgit-output*
+==============================================================================
+
+Buffer name:         `ghostgit://output`
+Filetype:            varies by command (diff, git, ghostgit_status)
+Opened by:           `:Git {command}` when output > 10 lines
+
+Shows the output of arbitrary `:Git` commands.
+
+Keymaps ~
+                                                    *ghostgit-output-mappings*
+    q             Close the output buffer
+
+==============================================================================
+Configuration                                     *ghostgit-config*
+==============================================================================
+
+                                                      *g:ghostgit_version*
+g:ghostgit_version
+    Read-only version string set by the plugin (e.g. `'0.1.0'`).
+
+                                                      *g:ghostgit_async_disable*
+g:ghostgit_async_disable
+    Set to `1` to force synchronous execution of all git commands.
+    Useful for debugging or environments without job/timer support.
+    Default: `0` (async enabled when available).
+
+                                                      *g:ghostgit_state*
+g:ghostgit_state
+    Global dictionary holding all GhostGit internal state:
+    - `repos`   — cached repository roots and metadata
+    - `buffers` — registered buffer names, bufnrs, cached items, view states
+    - `version` — state schema version
+
+==============================================================================
+Highlight Groups                                  *ghostgit-highlights*
+==============================================================================
+
+All highlight groups are defined in `autoload/ghostgit/highlights.vim` and
+linked in the syntax files.
+
+Core UI ~
+    GhostGitHeader          Title                  *hl-GhostGitHeader*
+    GhostGitSectionHeader   Title                  *hl-GhostGitSectionHeader*
+    GhostGitSeparator       Comment                *hl-GhostGitSeparator*
+    GhostGitFooter          Comment                *hl-GhostGitFooter*
+    GhostGitSummary         Directory              *hl-GhostGitSummary*
+    GhostGitLegend          Comment                *hl-GhostGitLegend*
+    GhostGitInfoMessage     SpecialComment         *hl-GhostGitInfoMessage*
+
+Status indicators ~
+    GhostGitStagedIndex     DiffAdd                *hl-GhostGitStagedIndex*
+    GhostGitUnstagedIndex   DiffChange             *hl-GhostGitUnstagedIndex*
+    GhostGitUntrackedIndex  NonText                *hl-GhostGitUntrackedIndex*
+    GhostGitConflictIndex   Error                  *hl-GhostGitConflictIndex*
+    GhostGitRenameIndex     String                 *hl-GhostGitRenameIndex*
+    GhostGitCopyIndex       String                 *hl-GhostGitCopyIndex*
+
+Status lines ~
+    GhostGitStagedLine      DiffAdd                *hl-GhostGitStagedLine*
+    GhostGitUnstagedLine    DiffChange             *hl-GhostGitUnstagedLine*
+    GhostGitUntrackedLine   NonText                *hl-GhostGitUntrackedLine*
+    GhostGitConflictLine    Error                  *hl-GhostGitConflictLine*
+    GhostGitRenameLine      String                 *hl-GhostGitRenameLine*
+    GhostGitCopyLine        String                 *hl-GhostGitCopyLine*
+
+Conflict subtypes ~
+    GhostGitConflictDD      ErrorMsg               *hl-GhostGitConflictDD*
+    GhostGitConflictAU      ErrorMsg               *hl-GhostGitConflictAU*
+    GhostGitConflictUA      ErrorMsg               *hl-GhostGitConflictUA*
+    GhostGitConflictDU      ErrorMsg               *hl-GhostGitConflictDU*
+
+Branch groups ~
+    GhostGitBranchCurrent   Special                *hl-GhostGitBranchCurrent*
+    GhostGitBranchRemote    Comment                *hl-GhostGitBranchRemote*
+
+Commit groups ~
+    GhostGitCommitHash      Identifier             *hl-GhostGitCommitHash*
+    GhostGitCommitRefs      Special                *hl-GhostGitCommitRefs*
+    GhostGitCommitAuthor    Constant               *hl-GhostGitCommitAuthor*
+    GhostGitCommitDate      Comment                *hl-GhostGitCommitDate*
+
+Custom colors are applied when `&background` is `'dark'` or `'light'`.
+
+==============================================================================
+Plugin API                                        *ghostgit-api*
+==============================================================================
+
+Core ~
+                                                    *ghostgit#core#Run()*
+ghostgit#core#Run({args} [, {cwd}])
+    Execute a git command synchronously and return the output lines.
+    `{args}` may be a string or a list.  Optionally accepts `{cwd}`.
+
+                                                    *ghostgit#core#Execute()*
+ghostgit#core#Execute({args})
+    Execute a git command with smart output routing (scratch buffer for
+    long output, echo for short).  Used by `:Git` / `:G`.
+
+                                                    *ghostgit#core#RepoRoot()*
+ghostgit#core#RepoRoot([{cwd}])
+    Return the repository root directory (cached in state).
+
+                                                    *ghostgit#core#CurrentBranch()*
+ghostgit#core#CurrentBranch([{cwd}])
+    Return the current branch name (or "HEAD detached at ...").
+
+                                                    *ghostgit#core#IsRepo()*
+ghostgit#core#IsRepo([{cwd}])
+    Return 1 if `{cwd}` is inside a Git repository, 0 otherwise.
+
+                                                    *ghostgit#core#ListBranches()*
+ghostgit#core#ListBranches([{cwd}])
+    Return a list of local and remote branch names.
+
+                                                    *ghostgit#core#LastCommit()*
+ghostgit#core#LastCommit([{cwd}])
+    Return a dict with `hash`, `subject`, `author`, `date` of HEAD.
+
+                                                    *ghostgit#core#Complete()*
+ghostgit#core#Complete({A}, {L}, {P})
+    Tab-completion function for `:Git` / `:G`.
+
+Git wrappers ~
+                                                    *ghostgit#git#Status()*
+ghostgit#git#Status([{callback} [, {cwd}]])
+    Run `git status --short --branch`.  Accepts an optional async callback.
+
+                                                    *ghostgit#git#Add()*
+ghostgit#git#Add({file} [, {cwd}])
+    Stage a file or list of files.
+
+                                                    *ghostgit#git#Reset()*
+ghostgit#git#Reset({file} [, {cwd}])
+    Unstage a file or list of files.
+
+                                                    *ghostgit#git#Diff()*
+ghostgit#git#Diff({file} [, {extra_args} [, {cwd}]])
+    Run `git diff` for a file with optional extra arguments.
+
+                                                    *ghostgit#git#Commit()*
+ghostgit#git#Commit({message} [, {opts} [, {cwd}]])
+    Run `git commit -m {message}` with optional extra flags.
+
+                                                    *ghostgit#git#Log()*
+ghostgit#git#Log([{callback} [, {cwd}]])
+    Run `git log --oneline --decorate --graph -100`.  Accepts an optional
+    async callback.
+
+                                                    *ghostgit#git#Checkout()*
+ghostgit#git#Checkout({branch} [, {cwd}])
+    Check out a branch.
+
+                                                    *ghostgit#git#Push()*
+ghostgit#git#Push([{opts} [, {cwd}]])
+    Push with optional extra flags.  Defaults to `--set-upstream origin {current}`.
+
+                                                    *ghostgit#git#Pull()*
+ghostgit#git#Pull([{opts} [, {cwd}]])
+    Pull with optional extra flags.
+
+                                                    *ghostgit#git#Branch()*
+ghostgit#git#Branch([{cwd}])
+    Return raw `git branch` output.
+
+                                                    *ghostgit#git#GetStagedFiles()*
+ghostgit#git#GetStagedFiles([{cwd}])
+    Return list of staged file names.
+
+                                                    *ghostgit#git#GetModifiedFiles()*
+ghostgit#git#GetModifiedFiles([{cwd}])
+    Return list of unstaged modified file names.
+
+                                                    *ghostgit#git#GetUntrackedFiles()*
+ghostgit#git#GetUntrackedFiles([{cwd}])
+    Return list of untracked file names.
+
+Buffer / UI ~
+                                                    *ghostgit#util#OpenBuffer()*
+ghostgit#util#OpenBuffer({name} [, {mods}])
+    Open or reuse a GhostGit scratch buffer (`ghostgit://{name}`).
+    `{mods}` defaults to `'botright'`.
+
+                                                    *ghostgit#util#Render()*
+ghostgit#util#Render({lines})
+    Replace the current buffer contents with `{lines}`.
+
+                                                    *ghostgit#util#Error()*
+ghostgit#util#Error({msg})
+    Display an error message prefixed with `[ghostgit]`.
+
+                                                    *ghostgit#util#Warn()*
+ghostgit#util#Warn({msg})
+    Display a warning message.
+
+                                                    *ghostgit#util#Info()*
+ghostgit#util#Info({msg})
+    Display an informational message.
+
+State ~
+                                                    *ghostgit#state#Init()*
+ghostgit#state#Init()
+    Initialize `g:ghostgit_state`.
+
+                                                    *ghostgit#state#SetBuffer()*
+ghostgit#state#SetBuffer({name}, {type} [, {bufnr}])
+    Register a buffer in the state manager.
+
+                                                    *ghostgit#state#CacheItems()*
+ghostgit#state#CacheItems({name}, {items})
+    Cache parsed items (status items, log entries) for a buffer.
+
+                                                    *ghostgit#state#GetCachedItems()*
+ghostgit#state#GetCachedItems({name})
+    Retrieve cached items for a buffer.
+
+                                                    *ghostgit#state#SaveView()*
+ghostgit#state#SaveView({name})
+    Save the current window view (cursor position, scroll).
+
+                                                    *ghostgit#state#RestoreView()*
+ghostgit#state#RestoreView({name})
+    Restore a previously saved window view.
+
+Job system ~
+                                                    *ghostgit#job#Schedule()*
+ghostgit#job#Schedule({name}, {cmd}, {opts})
+    Schedule a named job in the async queue.  Cancels any existing job with
+    the same name.  Options: `bufnr`, `cwd`, `priority`, `on_success`,
+    `on_failure`, `on_exit`.
+
+                                                    *ghostgit#job#Debounce()*
+ghostgit#job#Debounce({name}, {delay}, {cmd}, {opts})
+    Debounce a named job: cancels pending, then schedules after `{delay}` ms
+    of inactivity.  Used by status and log buffers for auto-refresh.
+
+                                                    *ghostgit#job#Cancel()*
+ghostgit#job#Cancel({name})
+    Cancel a named job (debounced, queued, or running).
+
+                                                    *ghostgit#job#Duration()*
+ghostgit#job#Duration({name})
+    Return the last execution duration in seconds for the named job, or
+    `-1.0` if unavailable.  Duration is displayed in the status and log
+    buffer headers as `[XXms]`.
+
+                                                    *ghostgit#job#Stats()*
+ghostgit#job#Stats()
+    Return a dict of `completed`, `failed`, `cancelled` counters.
+
+Parser / Renderer ~
+                                                    *ghostgit#parser#ParseStatusOutput()*
+ghostgit#parser#ParseStatusOutput({lines})
+    Parse `git status --short --branch` output into a dict with `branch`,
+    `upstream`, `ahead`, `behind`, and `items`.
+
+                                                    *ghostgit#parser#ParseStatusLine()*
+ghostgit#parser#ParseStatusLine({line})
+    Parse a single status line into an item dict with `index`, `worktree`,
+    `file`, and `type`.
+
+                                                    *ghostgit#parser#ParseLogLine()*
+ghostgit#parser#ParseLogLine({line})
+    Parse a log line into a dict with `graph`, `hash`, and `subject`.
+
+                                                    *ghostgit#parser#Classify()*
+ghostgit#parser#Classify({item})
+    Classify a status item as `'staged'`, `'unstaged'`, `'untracked'`,
+    `'conflicted'`, or `'unmodified'`.
+
+                                                    *ghostgit#render#Status()*
+ghostgit#render#Status({status} [, {duration}])
+    Render a full status buffer layout as a list of lines.  Optionally
+    accepts a duration (seconds) displayed in the header.
+
+                                                    *ghostgit#render#Log()*
+ghostgit#render#Log({items} [, {duration}])
+    Render a log buffer layout.  Optionally accepts a duration.
+
+                                                    *ghostgit#render#Branches()*
+ghostgit#render#Branches({branches})
+    Render the branch list buffer.
+
+                                                    *ghostgit#render#Generic()*
+ghostgit#render#Generic({title}, {lines})
+    Render a generic output buffer with a title header.
+
+Highlights ~
+                                                    *ghostgit#highlights#Init()*
+ghostgit#highlights#Init()
+    Define all GhostGit highlight groups (called from syntax files).
+
+Testing ~
+                                                    *ghostgit#test#Setup()*
+ghostgit#test#Setup()
+    Create a temporary Git repository with an initial commit.  Returns the
+    directory path.  The repository is configured with a test user name and
+    email, and `core.quotePath` is set to `false`.
+
+                                                    *ghostgit#test#SetupEmptyRepo()*
+ghostgit#test#SetupEmptyRepo()
+    Create a temporary Git repository without any commits.
+
+                                                    *ghostgit#test#CreateFile()*
+ghostgit#test#CreateFile({dir}, {path}, {content})
+    Write `{content}` to `{dir}/{path}`, creating parent directories as
+    needed.
+
+                                                    *ghostgit#test#StageFile()*
+ghostgit#test#StageFile({dir}, {path})
+    Stage a file with `git add` inside `{dir}`.
+
+                                                    *ghostgit#test#Teardown()*
+ghostgit#test#Teardown({dir})
+    Recursively delete the temporary test directory.
+
+==============================================================================
+About                                             *ghostgit-about*
+==============================================================================
+
+GhostGit is released under the MIT license.
+
+Repository: https://github.com/anomalyco/ghostgit.vim
+Report issues at: https://github.com/anomalyco/ghostgit.vim/issues
+
+ vim:tw=78:ts=8:ft=help:norl:

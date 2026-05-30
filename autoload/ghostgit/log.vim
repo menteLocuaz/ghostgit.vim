@@ -11,10 +11,17 @@ function! ghostgit#log#Open() abort
 
   call ghostgit#util#OpenBuffer('log')
   call ghostgit#state#SetBuffer('log', 'log')
+
+  " Cancel pending jobs when the buffer is wiped
+  augroup GhostGitLogCleanup
+    autocmd! * <buffer>
+    autocmd BufWipeout <buffer> call ghostgit#job#CancelBuffer(str2nr(expand('<abuf>')))
+  augroup END
+
   call ghostgit#log#Refresh()
 endfunction
 
-" Refresh log content (synchronous via core#Run)
+" Refresh log content (async via job queue)
 function! ghostgit#log#Refresh() abort
   call ghostgit#state#SaveView('log')
 
@@ -23,19 +30,45 @@ function! ghostgit#log#Refresh() abort
     return
   endif
 
-  let l:raw_lines = ghostgit#git#Log(l:repo_root)
-  if empty(l:raw_lines)
-    call ghostgit#util#Render(ghostgit#render#Log([]))
+  let l:bufnr = bufnr('ghostgit://log')
+  if l:bufnr == -1
+    return
+  endif
+
+  call ghostgit#job#Debounce('log', 200, ['git', 'log', '--oneline', '--decorate', '--graph', '-100'], {
+        \ 'bufnr': l:bufnr,
+        \ 'priority': 1,
+        \ 'cwd': l:repo_root,
+        \ 'on_success': {lines -> s:OnLogResult(lines)},
+        \ 'on_failure': {err -> ghostgit#util#Error('Failed to get log')}
+        \ })
+endfunction
+
+" Callback: parse, cache, and render log result into the buffer.
+function! s:OnLogResult(lines) abort
+  let l:bufnr = bufnr('ghostgit://log')
+  if l:bufnr == -1
     return
   endif
 
   let l:items = filter(
-        \ map(l:raw_lines, 'ghostgit#parser#ParseLogLine(v:val)'),
+        \ map(a:lines, 'ghostgit#parser#ParseLogLine(v:val)'),
         \ '!empty(v:val)')
 
   call ghostgit#state#CacheItems('log', l:items)
-  call ghostgit#util#Render(ghostgit#render#Log(l:items))
-  call ghostgit#state#RestoreView('log')
+  let l:rendered = ghostgit#render#Log(l:items)
+
+  let l:cur_win = winnr()
+  let l:log_win = bufwinnr(l:bufnr)
+  if l:log_win != -1
+    execute l:log_win . 'wincmd w'
+    setlocal modifiable noreadonly
+    silent! %delete _
+    call setline(1, l:rendered)
+    setlocal nomodifiable readonly
+    call ghostgit#state#RestoreView('log')
+    execute l:cur_win . 'wincmd w'
+  endif
 endfunction
 
 " Get commit hash at current cursor position

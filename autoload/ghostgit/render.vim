@@ -118,7 +118,7 @@ function! ghostgit#render#Status(status) abort
   endif
 
   " Add symbol legend if there are elements
-  if !empty(a:items)
+  if !empty(l:items)
     call extend(l:lines, [
           \ 'Legend:',
           \ '  M = Modified, A = Added, D = Deleted, R = Renamed, C = Copied',
