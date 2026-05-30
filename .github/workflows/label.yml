@@ -1,22 +1,83 @@
-# This workflow will triage pull requests and apply a label based on the
-# paths that are modified in the pull request.
-#
-# To use this workflow, you will need to set up a .github/labeler.yml
-# file with configuration.  For more information, see:
-# https://github.com/actions/labeler
+plugin:
+  - changed-files:
+      - any-glob-to-any-file: plugin/*
 
-name: Labeler
-on: [pull_request_target]
+core:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/core.vim
 
-jobs:
-  label:
+status:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/status.vim
 
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
+log:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/log.vim
 
-    steps:
-    - uses: actions/labeler@v4
-      with:
-        repo-token: "${{ secrets.GITHUB_TOKEN }}"
+diff:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/diff.vim
+
+blame:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/blame.vim
+
+commit:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/commit.vim
+
+branch:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/branch.vim
+
+remote:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/remote.vim
+
+job:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/job.vim
+
+render:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/render.vim
+
+parser:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/parser.vim
+
+action:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/action.vim
+
+util:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/util.vim
+
+state:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/state.vim
+
+highlights:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/highlights.vim
+
+test:
+  - changed-files:
+      - any-glob-to-any-file: test/**/*
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: .github/**/*
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file: doc/**/*
+
+syntax:
+  - changed-files:
+      - any-glob-to-any-file: syntax/**/*
+
+ftplugin:
+  - changed-files:
+      - any-glob-to-any-file: ftplugin/**/*
