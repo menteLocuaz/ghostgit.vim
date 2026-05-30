@@ -52,7 +52,7 @@ Execute (OpenBuffer reuses existing buffer):
 
 Execute (OpenBuffer sets proper filetype):
   call ghostgit#util#OpenBuffer('ft_test')
-  Assert &filetype ==# 'ghostgit'
+  Assert &filetype ==# 'ghostgit_ft_test'
   silent! bd! ghostgit://ft_test
 
 Execute (OpenBuffer preserves cursor position on reuse):

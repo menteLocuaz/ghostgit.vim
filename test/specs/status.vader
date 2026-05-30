@@ -40,7 +40,8 @@ Execute (status#Open opens status buffer in repo):
   " Verificar configuración del buffer
   Assert &buftype ==# 'nofile'
   Assert &bufhidden ==# 'wipe'
-  Assert &filetype ==# 'ghostgit'
+  Assert &filetype ==# 'ghostgit_status'
+
 
 Execute (status#Open does not error outside repo):
   " Crear directorio temporal fuera de repositorio
