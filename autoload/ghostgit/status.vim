@@ -14,36 +14,62 @@ function! ghostgit#status#Open() abort
   call ghostgit#util#OpenBuffer('status')
   call ghostgit#state#SetBuffer('status', 'status')
 
-  " Refresh buffer contents asíncronamente
+  " Cancel pending jobs when the buffer is wiped
+  augroup GhostGitStatusCleanup
+    autocmd! * <buffer>
+    autocmd BufWipeout <buffer> call ghostgit#job#CancelBuffer(str2nr(expand('<abuf>')))
+  augroup END
+
+  " Refresh buffer contents asynchronously
   call ghostgit#status#Refresh()
 endfunction
 
-" Refresh the contents of the status buffer (synchronous)
+" Refresh the contents of the status buffer (async via job queue)
 function! ghostgit#status#Refresh() abort
-  " Save current position in buffer
   call ghostgit#state#SaveView('status')
 
-  " Get repo root explicitly to avoid getcwd() issues in scratch buffers
   let l:repo_root = ghostgit#core#RepoRoot()
   if empty(l:repo_root)
     return
   endif
 
-  " Get status synchronously
-  let l:raw_lines = ghostgit#git#Status(l:repo_root)
+  let l:bufnr = bufnr('ghostgit://status')
+  if l:bufnr == -1
+    return
+  endif
 
-  " Parse status into a structured dict
-  let l:status_data = ghostgit#parser#ParseStatusOutput(l:raw_lines)
+  call ghostgit#job#Debounce('status', 200, ['git', 'status', '--short', '--branch'], {
+        \ 'bufnr': l:bufnr,
+        \ 'priority': 1,
+        \ 'cwd': l:repo_root,
+        \ 'on_success': {lines -> s:OnStatusResult(l:repo_root, lines)},
+        \ 'on_failure': {err -> ghostgit#util#Error('Failed to get status')}
+        \ })
+endfunction
 
-  " Cache items for later use
+" Callback: parse, cache, and render status result into the buffer.
+function! s:OnStatusResult(repo_root, lines) abort
+  let l:bufnr = bufnr('ghostgit://status')
+  if l:bufnr == -1
+    return
+  endif
+
+  let l:status_data = ghostgit#parser#ParseStatusOutput(a:lines)
   call ghostgit#state#CacheItems('status', l:status_data.items)
-  
-  " Render content
-  let l:lines = ghostgit#render#Status(l:status_data)
-  call ghostgit#util#Render(l:lines)
-  
-  " Restore position in buffer
-  call ghostgit#state#RestoreView('status')
+  let l:rendered = ghostgit#render#Status(l:status_data)
+
+  " Switch to the status window, render, restore view
+  let l:cur_win = winnr()
+  let l:status_win = bufwinnr(l:bufnr)
+  if l:status_win != -1
+    execute l:status_win . 'wincmd w'
+    setlocal modifiable noreadonly
+    silent! %delete _
+    call setline(1, l:rendered)
+    setlocal nomodifiable readonly
+    call ghostgit#state#RestoreView('status')
+    execute l:cur_win . 'wincmd w'
+  endif
 endfunction
 
 " Add file to stage

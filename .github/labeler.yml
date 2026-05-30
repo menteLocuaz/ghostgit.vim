@@ -1,0 +1,83 @@
+plugin:
+  - changed-files:
+      - any-glob-to-any-file: plugin/*
+
+core:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/core.vim
+
+status:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/status.vim
+
+log:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/log.vim
+
+diff:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/diff.vim
+
+blame:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/blame.vim
+
+commit:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/commit.vim
+
+branch:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/branch.vim
+
+remote:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/remote.vim
+
+job:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/job.vim
+
+render:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/render.vim
+
+parser:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/parser.vim
+
+action:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/action.vim
+
+util:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/util.vim
+
+state:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/state.vim
+
+highlights:
+  - changed-files:
+      - any-glob-to-any-file: autoload/ghostgit/highlights.vim
+
+test:
+  - changed-files:
+      - any-glob-to-any-file: test/**/*
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: .github/**/*
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file: doc/**/*
+
+syntax:
+  - changed-files:
+      - any-glob-to-any-file: syntax/**/*
+
+ftplugin:
+  - changed-files:
+      - any-glob-to-any-file: ftplugin/**/*
