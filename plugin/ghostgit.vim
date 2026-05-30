@@ -15,5 +15,5 @@ command! -nargs=? GCommit call ghostgit#commit#Open(<q-args>)
 command! -nargs=? GDiff   call ghostgit#diff#Open(expand('%'), <q-args>)
 command! GBrowse call ghostgit#remote#Browse()
 
-command! -nargs=* -complete=customlist,ghostgit#core#Complete Git call ghostgit#core#Execute(<q-args>)
-command! -nargs=* -complete=customlist,ghostgit#core#Complete G   call ghostgit#core#Execute(<q-args>)
+command! -nargs=* -complete=customlist,ghostgit#complete#Complete Git call ghostgit#core#Execute(<q-args>)
+command! -nargs=* -complete=customlist,ghostgit#complete#Complete G   call ghostgit#core#Execute(<q-args>)

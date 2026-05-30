@@ -91,14 +91,6 @@ function! ghostgit#core#Execute(args) abort
   endif
 endfunction
 
-" Basic autocompletion for :Git command
-function! ghostgit#core#Complete(A, L, P) abort
-  let l:cmds = ['add', 'bisect', 'branch', 'checkout', 'clone', 'commit', 
-        \ 'diff', 'fetch', 'grep', 'init', 'log', 'merge', 'mv', 'pull', 
-        \ 'push', 'rebase', 'reset', 'restore', 'rm', 'show', 'status', 'switch', 'tag']
-  return filter(l:cmds, 'v:val =~# "^" . a:A')
-endfunction
-
 " Return root from current repo
 function! ghostgit#core#RepoRoot(...) abort
   " Get current directory
