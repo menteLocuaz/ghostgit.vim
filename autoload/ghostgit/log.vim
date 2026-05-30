@@ -43,9 +43,14 @@ function! ghostgit#log#HashAtCursor() abort
   return matchstr(getline('.'), '\x\{7,\}')
 endfunction
 
-" View commit details (placeholder)
+" View commit details
 function! ghostgit#log#OpenCommit() abort
   let l:hash = ghostgit#log#HashAtCursor()
-  if empty(l:hash) | return | endif
-  call ghostgit#util#Info('Commit: ' . l:hash)
+  if empty(l:hash)
+    call ghostgit#util#Warn('No commit hash found at cursor')
+    return
+  endif
+
+  " Use Execute to leverage its smart output handling
+  call ghostgit#core#Execute('show ' . l:hash)
 endfunction
