@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: ${{ matrix.runner }} ${{ matrix.version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: vim
+            version: v9.0.0
+          - runner: vim
+            version: v9.1.0
+          - runner: nvim
+            version: v0.9.0
+          - runner: nvim
+            version: v0.10.0
+          - runner: nvim
+            version: nightly
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Vader
+        uses: actions/cache@v4
+        with:
+          path: /tmp/vader.vim
+          key: vader-${{ hashFiles('test/run_tests.vim') }}
+
+      - name: Install Vader
+        run: |
+          [ -d /tmp/vader.vim ] || git clone --depth 1 \
+            https://github.com/junegunn/vader.vim.git /tmp/vader.vim
+
+      - name: Setup ${{ matrix.runner }}
+        uses: thinca/action-setup-vim@v1
+        with:
+          vim_version: ${{ matrix.runner == 'vim' && matrix.version || '' }}
+          nvim_version: ${{ matrix.runner == 'nvim' && matrix.version || '' }}
+
+      - name: Run Vader tests
+        run: |
+          PROJ=$(pwd)
+          RTP="set rtp+=$PROJ|set rtp+=/tmp/vader.vim"
+          ASYNC="let g:ghostgit_async_disable=1"
+          CMD="$RTP|$ASYNC|runtime plugin/vader.vim"
+          if [ "${{ matrix.runner }}" = "nvim" ]; then
+            nvim --headless -c "$CMD" \
+              -c "Vader! test/specs/*.vader" -c "qall!"
+          else
+            vim -u NONE -i NONE -n -e -s -c "$CMD" \
+              -c "Vader! test/specs/*.vader" -c "qall!"
+          fi
