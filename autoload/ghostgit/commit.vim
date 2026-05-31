@@ -13,9 +13,15 @@ function! ghostgit#commit#Open(...) abort
 
   " Obtain additional options if provided
   let l:opts = get(a:000, 0, '')
+  let l:repo_root = ghostgit#core#RepoRoot()
   
-  " Create path to temporary file for commit message
-  let l:commit_editmsg = l:repo_root . '/.git/COMMIT_EDITMSG'
+  " Use git-path to handle submodules and worktrees correctly
+  let l:git_path = ghostgit#core#Run(['rev-parse', '--git-path', 'COMMIT_EDITMSG'], l:repo_root)
+  if empty(l:git_path)
+    call ghostgit#util#Error('Could not find .git path')
+    return
+  endif
+  let l:commit_editmsg = l:git_path[0]
   
   " Open the file in a new split at the bottom
   try
@@ -33,6 +39,7 @@ function! ghostgit#commit#Open(...) abort
   
   " Save options for when the buffer closes
   let b:ghostgit_commit_opts = l:opts
+  let b:ghostgit_repo_root = l:repo_root
   
   " Define mappings to finalize the commit or cancel
   nnoremap <silent><buffer> <C-c><C-c> :call ghostgit#commit#Finish()<CR>
@@ -99,7 +106,9 @@ function! ghostgit#commit#Finish() abort
   
   " Get stored options
   let l:opts = get(b:, 'ghostgit_commit_opts', '')
+  let l:repo_root = get(b:, 'ghostgit_repo_root', '')
   let l:msg_file = expand('%:p')
+  let l:bufnr = bufnr('%')
   
   " Remove autocmd before closing the buffer
   augroup GhostGitCommit
@@ -109,10 +118,9 @@ function! ghostgit#commit#Finish() abort
   " Close the commit buffer
   bd!
   
-  " Preparar argumentos para git commit
+  " Prepare arguments for git commit
   let l:args = ['commit', '-F', l:msg_file]
   if !empty(l:opts)
-    " Dividir opciones en palabras individuales y agregarlas
     for l:opt in split(l:opts, '\s\+')
       call add(l:args, l:opt)
     endfor
@@ -122,7 +130,7 @@ function! ghostgit#commit#Finish() abort
   try
     let l:output = ghostgit#core#Run(l:args)
     if !empty(l:output)
-      call ghostgit#util#Success('Changes committed successfully')
+      call ghostgit#util#Info('Changes committed successfully')
     else
       call ghostgit#util#Info('Commit completed')
     endif

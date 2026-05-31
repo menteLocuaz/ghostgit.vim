@@ -298,6 +298,7 @@ function! s:ProcessQueue() abort
     let s:running -= 1
     call s:CleanupNamed(l:name)
     let s:stats.failed += 1
+
     if OnFailure != v:null
       try
         call OnFailure([])

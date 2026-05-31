@@ -71,7 +71,28 @@ function! ghostgit#complete#Context(subcmd) abort
   return []
 endfunction
 
-" It retrieves all local and remote branches from the repository
+" Cache for completion results
+let s:cache = {}
+let s:cache_ttl = 2 " 2 seconds
+
+function! s:GetCached(key, Func) abort
+  let l:now = localtime()
+  if has_key(s:cache, a:key)
+    let l:entry = s:cache[a:key]
+    if l:now - l:entry.time < s:cache_ttl
+      return l:entry.data
+    endif
+  endif
+
+  let l:data = a:Func()
+  let s:cache[a:key] = {'time': l:now, 'data': l:data}
+  return l:data
+endfunction
+
+function! ghostgit#complete#ClearCache() abort
+  let s:cache = {}
+endfunction
+
 function! ghostgit#complete#Branches() abort
   " Verify that we are in a Git repository
   let l:root = ghostgit#core#RepoRoot()
@@ -79,19 +100,10 @@ function! ghostgit#complete#Branches() abort
     return [] 
   endif
 
-  try
-    " Get local branches
-    let l:local = ghostgit#core#Run(['branch', '--format', '%(refname:short)'], l:root)
-    
-    " Get remote branches
-    let l:remote = ghostgit#core#Run(['branch', '-r', '--format', '%(refname:short)'], l:root)
-    
-    " Combine results
-    return l:local + l:remote
-  catch
-    " In case of error, return an empty list
-    return []
-  endtry
+  return s:GetCached('branches:' . l:root, {-> 
+        \ ghostgit#core#Run(['branch', '--format', '%(refname:short)'], l:root) +
+        \ ghostgit#core#Run(['branch', '-r', '--format', '%(refname:short)'], l:root)
+        \ })
 endfunction
 
 " Retrieves modified files from the repository
@@ -102,21 +114,9 @@ function! ghostgit#complete#ModifiedFiles() abort
     return [] 
   endif
 
-  try
-    let l:files = []
-    " Run the git status command in machine format
-    for l:line in ghostgit#core#Run(['status', '--porcelain'], l:root)
-      " Verify that the line is long enough
-      if len(l:line) > 3
-        " Extract filename (after status)
-        call add(l:files, l:line[3:])
-      endif
-    endfor
-
-    return l:files
-  catch
-    return []
-  endtry
+  return s:GetCached('modified:' . l:root, {-> 
+        \ map(filter(ghostgit#core#Run(['status', '--porcelain'], l:root), 'len(v:val) > 3'), 'v:val[3:]')
+        \ })
 endfunction
 
 " It retrieves files that are in the staging area
@@ -127,11 +127,9 @@ function! ghostgit#complete#StagedFiles() abort
     return [] 
   endif
 
-  try
-    return ghostgit#core#Run(['diff', '--name-only', '--cached'], l:root)
-  catch
-    return []
-  endtry
+  return s:GetCached('staged:' . l:root, {-> 
+        \ ghostgit#core#Run(['diff', '--name-only', '--cached'], l:root)
+        \ })
 endfunction
 
 " Retrieves the remotes configured in the repository
@@ -142,11 +140,7 @@ function! ghostgit#complete#Remotes() abort
     return [] 
   endif
 
-  try
-    return ghostgit#core#Run(['remote'], l:root)
-  catch
-    return []
-  endtry
+  return s:GetCached('remotes:' . l:root, {-> ghostgit#core#Run(['remote'], l:root)})
 endfunction
 
 " Get the tags from the repository
@@ -157,11 +151,7 @@ function! ghostgit#complete#Tags() abort
     return [] 
   endif
 
-  try
-    return ghostgit#core#Run(['tag'], l:root)
-  catch
-    return []
-  endtry
+  return s:GetCached('tags:' . l:root, {-> ghostgit#core#Run(['tag'], l:root)})
 endfunction
 
 " Retrieves all files tracked by Git
@@ -172,11 +162,7 @@ function! ghostgit#complete#TrackedFiles() abort
     return [] 
   endif
 
-  try
-    return ghostgit#core#Run(['ls-files'], l:root)
-  catch
-    return []
-  endtry
+  return s:GetCached('tracked:' . l:root, {-> ghostgit#core#Run(['ls-files'], l:root)})
 endfunction
 
 " Get the list of available stashes
@@ -187,9 +173,5 @@ function! ghostgit#complete#Stashes() abort
     return [] 
   endif
 
-  try
-    return ghostgit#core#Run(['stash', 'list', '--format', '%gd: %gs'], l:root)
-  catch
-    return []
-  endtry
+  return s:GetCached('stashes:' . l:root, {-> ghostgit#core#Run(['stash', 'list', '--format', '%gd'], l:root)})
 endfunction

@@ -18,6 +18,7 @@ backup/
 swap/
 shada/
 
+
 # Logs y archivos de depuración
 *.log
 
@@ -48,3 +49,5 @@ spec/reports/
 # Archivos de configuración de lenguajes o linters
 .styluaignore
 .luacheckr
+.agents
+skills-lock.json

@@ -39,8 +39,9 @@ function! ghostgit#util#OpenBuffer(name, ...) abort
   setlocal cursorline
   setlocal signcolumn=no
   
-  " Set base file type for GhostGit buffers
-  execute 'setlocal filetype=ghostgit_' . a:name
+  " Set base file type for GhostGit buffers (use only first segment to keep it valid)
+  let l:ft = substitute(split(a:name, '/')[0], '[^[:alnum:]_.]', '_', 'g')
+  execute 'setlocal filetype=ghostgit_' . l:ft
 
   " Universal mappings to close the buffer
   nnoremap <silent><buffer> q :bd!<CR>
@@ -48,22 +49,35 @@ endfunction
 
 " Render content in current buffer
 function! ghostgit#util#Render(lines) abort
+  call ghostgit#util#RenderToBuffer(bufnr('%'), a:lines)
+  normal! gg
+endfunction
+
+" Render content in a specific buffer by number (non-disruptive)
+function! ghostgit#util#RenderToBuffer(bufnr, lines) abort
+  if !bufexists(a:bufnr) | return | endif
+
+  " Get current state of the buffer to restore later if needed
+  let l:is_modifiable = getbufvar(a:bufnr, '&modifiable')
+  let l:is_readonly = getbufvar(a:bufnr, '&readonly')
+
   " Make the buffer temporarily modifiable and not readonly
-  setlocal modifiable noreadonly
+  call setbufvar(a:bufnr, '&modifiable', 1)
+  call setbufvar(a:bufnr, '&readonly', 0)
   
-  " Clear current buffer contents
-  silent! %delete _
+  " Clear current buffer contents and insert new lines
+  " Note: deletebufline and setbufline work in the background
+  silent! call deletebufline(a:bufnr, 1, '$')
   
-  " Insert new lines
   if empty(a:lines)
-    call setline(1, [''])
+    call setbufline(a:bufnr, 1, [''])
   else
-    call setline(1, a:lines)
+    call setbufline(a:bufnr, 1, a:lines)
   endif
   
-  " Make non-modifiable and readonly again
-  setlocal nomodifiable readonly
-  normal! gg
+  " Restore modifiable and readonly flags
+  call setbufvar(a:bufnr, '&modifiable', l:is_modifiable)
+  call setbufvar(a:bufnr, '&readonly', l:is_readonly)
 endfunction
 
 " Show error message

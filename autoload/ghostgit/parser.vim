@@ -137,7 +137,17 @@ function! ghostgit#parser#ParseStatusOutput(lines) abort
       let l:result.upstream = get(l:names, 1, '')
       
     elseif l:line =~# '^#'
-      " Skip other comment lines for now or handle them if needed
+      let l:branch_info = ghostgit#parser#ParseBranchInfo(l:line)
+      if !empty(l:branch_info)
+        if l:branch_info.type ==# 'current_branch'
+          let l:result.branch = l:branch_info.branch
+        elseif l:branch_info.type ==# 'upstream_branch'
+          let l:result.upstream = l:branch_info.upstream
+        elseif l:branch_info.type ==# 'branch_ab'
+          let l:result.ahead = l:branch_info.ahead
+          let l:result.behind = l:branch_info.behind
+        endif
+      endif
       continue
     elseif !empty(l:line)
       let l:item = ghostgit#parser#ParseStatusLine(l:line)
