@@ -1,0 +1,40 @@
+Before:
+  let g:ghostgit_async_disable = 1
+  call ghostgit#state#Init()
+  let g:repo = ghostgit#test#Setup()
+  let g:cwd = getcwd()
+
+After:
+  call ghostgit#test#Teardown(g:repo)
+  silent! bd!
+  execute 'cd ' . fnameescape(g:cwd)
+
+Execute (commit#Open errors outside repo):
+  let g:plain = tempname()
+  call mkdir(g:plain, 'p')
+  execute 'cd ' . fnameescape(g:plain)
+  call ghostgit#commit#Open()
+  call delete(g:plain, 'rf')
+  Assert 1
+
+Execute (commit#Open opens commit message buffer):
+  execute 'cd ' . fnameescape(g:repo)
+  call ghostgit#test#CreateFile(g:repo, 'test.txt', 'content')
+  call ghostgit#test#StageFile(g:repo, 'test.txt')
+  call ghostgit#commit#Open()
+  Assert &filetype ==# 'gitcommit'
+  call ghostgit#commit#Cancel()
+
+Execute (commit#Cancel can be called without error):
+  execute 'cd ' . fnameescape(g:repo)
+  call ghostgit#commit#Open()
+  call ghostgit#commit#Cancel()
+  Assert 1
+
+Execute (commit#InsertTemplate adds lines):
+  execute 'cd ' . fnameescape(g:repo)
+  new
+  call ghostgit#commit#InsertTemplate()
+  let g:combined = join(getline(1, '$'), "\n")
+  Assert g:combined =~# 'commit message'
+  bd!

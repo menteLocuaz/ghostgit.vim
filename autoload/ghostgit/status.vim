@@ -55,6 +55,16 @@ function! s:OnStatusResult(repo_root, lines) abort
   endif
 
   let l:status_data = ghostgit#parser#ParseStatusOutput(a:lines)
+  
+  " Update global repo state with branch info
+  call ghostgit#state#SetRepo(a:repo_root, {
+        \ 'branch': l:status_data.branch,
+        \ 'upstream': l:status_data.upstream,
+        \ 'ahead': l:status_data.ahead,
+        \ 'behind': l:status_data.behind,
+        \ 'last_refresh': localtime()
+        \ })
+
   call ghostgit#state#CacheItems('status', l:status_data.items)
   let l:rendered = ghostgit#render#Status(l:status_data)
 

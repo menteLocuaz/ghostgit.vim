@@ -9,81 +9,92 @@ endif
 
 " Execute a Git command and return the output
 function! ghostgit#core#Run(args, ...) abort
-  " Obtener directorio de trabajo
-  let l:user_provided_cwd = (a:0 > 0)
-  let l:cwd = get(a:000, 0, getcwd())
+  let l:cwd = get(a:000, 0, '')
   let l:opts = get(a:000, 1, {})
+  let l:user_provided_cwd = !empty(l:cwd)
 
-  " Verify that the directory exists
-  if !empty(l:cwd) && !isdirectory(l:cwd)
-    call ghostgit#util#Error('Directory does not exist: ' . l:cwd)
-    return []
-  endif
-
-  " Fallback to RepoRoot if cwd is empty or invalid (only when not explicitly provided)
-  if !l:user_provided_cwd && (empty(l:cwd) || !isdirectory(l:cwd))
+  " Determine working directory
+  if !l:user_provided_cwd
     let l:cwd = ghostgit#core#RepoRoot()
   endif
 
-  " Double-check that the directory exists
   if empty(l:cwd) || !isdirectory(l:cwd)
-    call ghostgit#util#Error('Unable to determine Git repository root')
-    return []
-  endif
-
-  " Verify that we have arguments to execute
-  if empty(a:args)
-    call ghostgit#util#Error('Git command required')
+    if !get(l:opts, 'silent', 0)
+      call ghostgit#util#Error('Unable to determine Git repository root or directory does not exist')
+    endif
     return []
   endif
 
   " Convert args to a list if it's a string
-  let l:cmd_args = type(a:args) == v:t_list ? a:args : [a:args]
-
-  " Verify that the arguments are not empty.
-  if empty(l:cmd_args) || (len(l:cmd_args) == 1 && empty(trim(l:cmd_args[0])))
-    call ghostgit#util#Error('Git command required')
+  let l:cmd_args = type(a:args) == v:t_list ? a:args : split(a:args)
+  if empty(l:cmd_args)
     return []
   endif
 
-  " Build Git command using -C to avoid global side effects
+  " Build Git command
   let l:cmd = ['git', '-C', l:cwd] + l:cmd_args
 
-  " Run command with timeout if configured
+  " Run command with timeout handling
+  let l:timeout = get(l:opts, 'timeout', g:ghostgit_core_timeout)
   let l:output = []
   let l:exit = 0
-  
+
   try
-    if exists('*job_start') && g:ghostgit_core_timeout > 0
-      " Use jobs for timeout in Vim 8+
-      let l:output = ghostgit#core#RunWithTimeout(l:cmd, g:ghostgit_core_timeout)
+    if l:timeout > 0 && ghostgit#job#IsAvailable()
+      if has('nvim')
+        let [l:output, l:exit] = s:NvimRunWithTimeout(l:cmd, l:timeout)
+      else
+        let l:output = ghostgit#core#RunWithTimeout(l:cmd, l:timeout)
+        let l:exit = 0
+      endif
     else
-      " Normal execution
       let l:output = systemlist(l:cmd)
       let l:exit = v:shell_error
     endif
   catch
-    call ghostgit#util#Error('Failed to execute Git command: ' . v:exception)
+    if !get(l:opts, 'silent', 0)
+      call ghostgit#util#Error('Git command failed: ' . v:exception)
+    endif
     return []
   endtry
 
-  " Git error handling
-  if l:exit != 0
-    " For some commands, the exit code != 0 may be valid
-    " For example, 'git rev-parse --verify HEAD' fails on empty repositories
-    let l:silent = type(l:opts) == v:t_dict ? get(l:opts, 'silent', 0) : 0
-    
-    if !l:silent
-      if !empty(l:output)
-        call ghostgit#util#Error(join(l:output, "\n"))
-      else
-        call ghostgit#util#Error('Git command failed with exit code: ' . l:exit)
-      endif
+  " Error handling
+  if l:exit != 0 && !get(l:opts, 'silent', 0)
+    if !empty(l:output)
+      call ghostgit#util#Error(join(l:output, "\n"))
+    else
+      call ghostgit#util#Error('Git command failed with exit code: ' . l:exit)
     endif
     return []
   endif
 
   return l:output
+endfunction
+
+" Execute command with timeout in Neovim
+function! s:NvimRunWithTimeout(cmd, timeout) abort
+  let l:stdout = []
+  let l:job_id = jobstart(a:cmd, {
+        \ 'on_stdout': {ch, data -> extend(l:stdout, data)},
+        \ 'stdout_buffered': 1
+        \ })
+
+  if l:job_id <= 0
+    throw 'Failed to start Neovim job'
+  endif
+
+  let l:res = jobwait([l:job_id], a:timeout * 1000)
+  if l:res[0] == -1
+    call jobstop(l:job_id)
+    throw 'Command timed out after ' . a:timeout . ' seconds'
+  elseif l:res[0] == -2
+    throw 'Command interrupted'
+  endif
+
+  if !empty(l:stdout) && empty(l:stdout[-1])
+    call remove(l:stdout, -1)
+  endif
+  return [l:stdout, l:res[0]]
 endfunction
 
 " Execute command with timeout (Vim 8+)
@@ -92,7 +103,7 @@ function! ghostgit#core#RunWithTimeout(cmd, timeout) abort
   let l:ch = job_getchannel(l:job)
   let l:output = []
   let l:start_time = reltime()
-  
+
   " Wait until timeout or completion
   while job_status(l:job) == 'run' && reltimefloat(reltime(l:start_time)) < a:timeout
     if ch_status(l:ch) == 'buffered'
@@ -102,19 +113,18 @@ function! ghostgit#core#RunWithTimeout(cmd, timeout) abort
     endif
     sleep 10m
   endwhile
-  
+
   " If the job is still running, terminate it.
   if job_status(l:job) == 'run'
     call job_stop(l:job, 'kill')
     throw 'Command timed out after ' . a:timeout . ' seconds'
   endif
-  
+
   return l:output
 endfunction
 
 " Callback for jobs
 function! GhostGitJobClose(channel) abort
-  " Callback necesario pero no usado
 endfunction
 
 " Execute Git command with intelligent output handling (Fugitive style)
@@ -127,7 +137,7 @@ function! ghostgit#core#Execute(args) abort
 
   let l:arg_list = split(a:args)
   let l:cmd_name = get(l:arg_list, 0, '')
-  
+
   " Special commands that need different treatment
   if l:cmd_name ==# 'commit'
     " Open commit interface
@@ -137,12 +147,12 @@ function! ghostgit#core#Execute(args) abort
 
   let l:output = ghostgit#core#Run(l:arg_list)
 
-  if empty(l:output) 
+  if empty(l:output)
     " Check if there was an error or if there is simply no exit.
     if v:shell_error == 0
       call ghostgit#util#Info('Command completed successfully (no output)')
     endif
-    return 
+    return
   endif
 
   " Decide how to display the output
@@ -150,7 +160,7 @@ function! ghostgit#core#Execute(args) abort
   if len(l:output) > 10 || l:cmd_name =~# '^\(diff\|show\|log\|blame\|status\|stash\)$'
     " Open special buffer for long output
     call ghostgit#util#OpenBuffer('git://' . join(l:arg_list, '/'))
-    
+
     " Establish command-based syntax
     if l:cmd_name ==# 'diff' || l:cmd_name ==# 'show'
       setlocal filetype=diff
@@ -166,11 +176,11 @@ function! ghostgit#core#Execute(args) abort
 
     " Render output
     call ghostgit#util#Render(l:output)
-    
+
     " Configure mappings for navigation
     nnoremap <silent><buffer> q :bd!<CR>
     nnoremap <silent><buffer> <C-c> :bd!<CR>
-    
+
     " Configure buffer options
     setlocal buftype=nofile
     setlocal bufhidden=hide
@@ -185,52 +195,35 @@ endfunction
 
 " Return root of current repository
 function! ghostgit#core#RepoRoot(...) abort
-  " Get current directory
   let l:cwd = get(a:000, 0, getcwd())
 
-  " Use buffer-local cache only if it matches the current working directory,
-  " preventing stale cache hits when the cwd changes (e.g. across test cases).
+  " Buffer-local cache check
   if a:0 == 0 && exists('b:ghostgit_repo_root') && !empty(b:ghostgit_repo_root)
     if exists('b:ghostgit_repo_cwd') && b:ghostgit_repo_cwd ==# l:cwd
-      if isdirectory(b:ghostgit_repo_root)
-        return b:ghostgit_repo_root
-      endif
-    endif
-    unlet! b:ghostgit_repo_root b:ghostgit_repo_cwd
-  endif
-
-  " Verify global cache first for better performance.
-  " Validate the cached directory still exists.
-  let l:entry = get(g:ghostgit_state.repos, l:cwd, {})
-  if !empty(l:entry) && !empty(get(l:entry, 'git_dir', ''))
-    if isdirectory(l:entry.git_dir)
-      if a:0 == 0
-        let b:ghostgit_repo_root = l:entry.git_dir
-        let b:ghostgit_repo_cwd = l:cwd
-      endif
-      return l:entry.git_dir
+      return b:ghostgit_repo_root
     endif
   endif
 
-  " Verify that the directory exists
-  if empty(l:cwd) || !isdirectory(l:cwd)
-    return ''
+  " Global cache check
+  let l:repos = exists('g:ghostgit_state') ? get(g:ghostgit_state, 'repos', {}) : {}
+  let l:entry = get(l:repos, l:cwd, {})
+  if !empty(get(l:entry, 'git_dir', '')) && isdirectory(l:entry.git_dir)
+    if a:0 == 0
+      let b:ghostgit_repo_root = l:entry.git_dir
+      let b:ghostgit_repo_cwd = l:cwd
+    endif
+    return l:entry.git_dir
   endif
 
-  " Run the git command to get root access
+  " Run git rev-parse
   let l:result = ghostgit#core#Run(['rev-parse', '--show-toplevel'], l:cwd, {'silent': 1})
-
-  " Check result
   if !empty(l:result) && !empty(l:result[0])
     let l:root = simplify(fnamemodify(l:result[0], ':p'))
-
-    " Validate that the result is a valid directory
     if isdirectory(l:root)
-      " Cache the repository root globally and locally
-      call ghostgit#state#SetRepo(l:root)
-      let g:ghostgit_state.repos[l:root].git_dir = l:root
-      " Also cache for the current directory specifically to avoid future rev-parse
-      let g:ghostgit_state.repos[l:cwd] = g:ghostgit_state.repos[l:root]
+      if exists('g:ghostgit_state')
+        call ghostgit#state#SetRepo(l:root, {'git_dir': l:root})
+        let g:ghostgit_state.repos[l:cwd] = g:ghostgit_state.repos[l:root]
+      endif
 
       if a:0 == 0
         let b:ghostgit_repo_root = l:root
@@ -245,31 +238,23 @@ endfunction
 
 " Return current branch
 function! ghostgit#core#CurrentBranch(...) abort
-  " Get working directory
   let l:cwd = get(a:000, 0, getcwd())
-  
-  " Verify that we are in a repository
-  if empty(ghostgit#core#RepoRoot(l:cwd))
-    return ''
-  endif
+  let l:root = ghostgit#core#RepoRoot(l:cwd)
+  if empty(l:root) | return '' | endif
 
-  " Run command to obtain branch
+  " Run command (always, to avoid stale cache)
   let l:result = ghostgit#core#Run(['rev-parse', '--abbrev-ref', 'HEAD'], l:cwd, {'silent': 1})
-
-  " Process result
   if !empty(l:result) && !empty(l:result[0])
     let l:branch = l:result[0]
-    
-    " Handle special case of detached HEAD
     if l:branch == 'HEAD'
-      " Get the commit hash instead of HEAD
       let l:hash_result = ghostgit#core#Run(['rev-parse', '--short', 'HEAD'], l:cwd, {'silent': 1})
-      if !empty(l:hash_result) && !empty(l:hash_result[0]) 
-        return 'HEAD detached at ' . l:hash_result[0]
-      endif
-      return 'HEAD detached'
+      let l:branch = 'HEAD detached at ' . get(l:hash_result, 0, 'unknown')
     endif
-    
+
+    " Update cache
+    if exists('g:ghostgit_state')
+      call ghostgit#state#SetRepo(l:root, {'branch': l:branch})
+    endif
     return l:branch
   endif
 
@@ -278,70 +263,56 @@ endfunction
 
 " Check if the current directory is a Git repository
 function! ghostgit#core#IsRepo(...) abort
-  " Get working directory
   let l:cwd = get(a:000, 0, getcwd())
 
-  " Verify that the directory exists
   if empty(l:cwd) || !isdirectory(l:cwd)
     return 0
   endif
 
-  " Run command to check if it is a repository
   let l:output = ghostgit#core#Run(['rev-parse', '--git-dir'], l:cwd, {'silent': 1})
   return !empty(l:output)
 endfunction
 
 " Get list of branches
 function! ghostgit#core#ListBranches(...) abort
-  " Get working directory
   let l:cwd = get(a:000, 0, getcwd())
-  
-  " Verify that we are in a repository
+
   if empty(ghostgit#core#RepoRoot(l:cwd))
     return []
   endif
 
-  " Get local branches
   let l:local_branches = ghostgit#core#Run(['branch', '--format', '%(refname:short)'], l:cwd, {'silent': 1})
 
-  " Get remote branches
   let l:remote_branches = ghostgit#core#Run(['branch', '-r', '--format', '%(refname:short)'], l:cwd, {'silent': 1})
 
-  " Combine results and remove duplicates
   let l:all_branches = l:local_branches + l:remote_branches
-  
-  " Delete empty entries
+
   call filter(l:all_branches, '!empty(v:val)')
-  
+
   return l:all_branches
 endfunction
 
 " Get latest commit
-function! ghostgit#core#LastCommit(...) abort 
-  " Get working directory
+function! ghostgit#core#LastCommit(...) abort
   let l:cwd = get(a:000, 0, getcwd())
-  
-  " Verify that we are in a repository
+
   if empty(ghostgit#core#RepoRoot(l:cwd))
     return {}
   endif
 
   try
-    " Get information about the last commit in a single call
     let l:format_string = "%H%n%s%n%an%n%ad"
     let l:info = ghostgit#core#Run(['log', '-1', '--format=' . l:format_string, '--date=relative'], l:cwd, {'silent': 1})
-    
-    " Verify that we have all the data
+
     if len(l:info) >= 4
       return {
-        \ 'hash': l:info[0], 
-        \ 'subject': l:info[1], 
+        \ 'hash': l:info[0],
+        \ 'subject': l:info[1],
         \ 'author': l:info[2],
-        \ 'date': l:info[3] 
+        \ 'date': l:info[3]
         \ }
     endif
   catch
-    " In case of error, return empty dictionary
     call ghostgit#util#Warn('Failed to retrieve last commit info: ' . v:exception)
   endtry
 
@@ -350,29 +321,23 @@ endfunction
 
 " Get repository status
 function! ghostgit#core#Status(...) abort
-  " Get working directory
   let l:cwd = get(a:000, 0, getcwd())
-  
-  " Verify that we are in a repository
+
   if empty(ghostgit#core#RepoRoot(l:cwd))
     return []
   endif
 
-  " Get repository status
   return ghostgit#core#Run(['status', '--porcelain', '-b'], l:cwd, {'silent': 1})
 endfunction
 
 " Get list of modified files
 function! ghostgit#core#ModifiedFiles(...) abort
-  " Get list of modified files
   let l:cwd = get(a:000, 0, getcwd())
-  
-  " Verify that we are in a repository
+
   if empty(ghostgit#core#RepoRoot(l:cwd))
     return []
   endif
 
-  " Get modified files
   let l:files = []
   for l:line in ghostgit#core#Run(['status', '--porcelain'], l:cwd, {'silent': 1})
     if len(l:line) > 3

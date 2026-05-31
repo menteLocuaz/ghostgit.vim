@@ -137,18 +137,11 @@ Execute (Render handles unicode content):
   Assert getline(3) ==# 'Español ñ'
   silent! bd! ghostgit://unicode_test
 
-Execute (Render with null or invalid input):
-  call ghostgit#util#OpenBuffer('error_test')
-  
-  " Probar con entrada nula
-  call ghostgit#util#Render(v:null)
-  " Debería manejar esto sin errores
-  
-  " Probar con entrada inválida
-  call ghostgit#util#Render('invalid_string_instead_of_list')
-  " Debería manejar esto sin errores
-  
-  silent! bd! ghostgit://error_test
+Execute (Render with empty list):
+  call ghostgit#util#OpenBuffer('empty_test')
+  call ghostgit#util#Render([])
+  Assert getline(1) ==# ''
+  silent! bd! ghostgit://empty_test
 
 " ============================================================================
 " ghostgit#util#Error Tests

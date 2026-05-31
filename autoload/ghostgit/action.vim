@@ -115,26 +115,22 @@ function! s:GetItemAtCursor() abort
   let l:items = ghostgit#state#GetCachedItems(l:ctx)
   if empty(l:items) | return {} | endif
 
-  " The line number in the buffer corresponds to the index in l:items
-  " (Adjusted for header lines)
-  let l:line = line('.')
-  
-  " In status buffer, items start after the header (usually line 5 or 6)
-  " It's better to search the items list for a matching file name if possible,
-  " but since we rendered them in order, we can calculate the index.
-  " HOWEVER, for robustness, we'll use the parser to get the file name 
-  " then look it up in the cache.
-  
   let l:raw_line = getline('.')
-  let l:parsed = ghostgit#parser#ParseStatusLine(l:raw_line)
-  if empty(l:parsed) || !has_key(l:parsed, 'file') | return {} | endif
 
-  " Look up in cache to get full item metadata
-  for l:item in l:items
-    if has_key(l:item, 'file') && l:item.file ==# l:parsed.file
+  " Skip header/separator/help lines
+  if empty(l:raw_line) || l:raw_line =~# '^\s*[#─]' || l:raw_line =~# '^\s*$'
+    return {}
+  endif
+
+  " Look up in cache by matching file name in the rendered line.
+  " Sort by file length descending to avoid substring collisions
+  " (e.g. "staged.txt" matching inside "unstaged.txt").
+  let l:sorted = sort(copy(l:items), {a, b -> len(b.file) - len(a.file)})
+  for l:item in l:sorted
+    if has_key(l:item, 'file') && stridx(l:raw_line, l:item.file) >= 0
       return l:item
     endif
   endfor
 
-  return l:parsed
+  return {}
 endfunction

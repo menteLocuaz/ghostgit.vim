@@ -3,10 +3,8 @@
 " ============================================================================
 
 Before:
-  " Configurar repositorio de prueba
+  let g:ghostgit_async_disable = 1
   let g:repo = ghostgit#test#Setup()
-  
-  " Guardar directorio de trabajo actual
   let g:cwd = getcwd()
 
 After:
@@ -228,14 +226,9 @@ Execute (ghostgit#git#Branch lists branches):
   Assert g:branches[0] =~# '\* main'
 
 Execute (ghostgit#git#Checkout switches branches):
-  " Crear nueva rama
   call ghostgit#core#Run(['checkout', '-b', 'test-branch'], g:repo)
-  
-  " Verificar que estamos en la nueva rama
   let g:branch = ghostgit#core#CurrentBranch(g:repo)
   Assert g:branch ==# 'test-branch'
-  
-  " Volver a main
   call ghostgit#git#Checkout('main', g:repo)
   let g:branch = ghostgit#core#CurrentBranch(g:repo)
   Assert g:branch ==# 'main'

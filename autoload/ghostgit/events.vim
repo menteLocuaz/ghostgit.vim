@@ -25,7 +25,17 @@ function! ghostgit#events#Init() abort
 endfunction
 
 " Handler for filesystem or environment changes
+let s:last_refresh_time = 0
+let s:refresh_throttle_ms = 1000
+
 function! s:OnFilesystemChange() abort
+  " Throttle refreshes to avoid overhead during rapid changes
+  let l:now = localtime()
+  if l:now - s:last_refresh_time < (s:refresh_throttle_ms / 1000)
+    return
+  endif
+  let s:last_refresh_time = l:now
+
   " Performance: Skip if the current buffer isn't in a Git repo (Fast Path)
   " This avoids overhead for non-git files.
   if empty(ghostgit#core#RepoRoot())
