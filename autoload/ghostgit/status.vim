@@ -58,17 +58,16 @@ function! s:OnStatusResult(repo_root, lines) abort
   call ghostgit#state#CacheItems('status', l:status_data.items)
   let l:rendered = ghostgit#render#Status(l:status_data)
 
-  " Switch to the status window, render, restore view
-  let l:cur_win = winnr()
-  let l:status_win = bufwinnr(l:bufnr)
-  if l:status_win != -1
-    execute l:status_win . 'wincmd w'
-    setlocal modifiable noreadonly
-    silent! %delete _
-    call setline(1, l:rendered)
-    setlocal nomodifiable readonly
+  " Render content non-disruptively
+  call ghostgit#util#RenderToBuffer(l:bufnr, l:rendered)
+
+  " Restore view if the buffer is visible in any window
+  let l:winid = bufwinid(l:bufnr)
+  if l:winid != -1
+    let l:cur_win = win_getid()
+    call win_gotoid(l:winid)
     call ghostgit#state#RestoreView('status')
-    execute l:cur_win . 'wincmd w'
+    call win_gotoid(l:cur_win)
   endif
 endfunction
 

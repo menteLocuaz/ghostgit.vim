@@ -15,21 +15,19 @@ function! ghostgit#blame#Open() abort
     return
   endif
 
-  let l:output = ghostgit#core#Run(['blame', '--', l:file])
-  if empty(l:output)
-    return
-  endif
-
-  " Create blame buffer
-  call ghostgit#util#OpenBuffer('blame/' . l:file)
+  let l:repo_root = ghostgit#core#RepoRoot()
+  let l:bufname = 'blame/' . l:file
   
-  " Render content
-  call ghostgit#util#Render(l:output)
+  " Create blame buffer immediately with a loading message
+  call ghostgit#util#OpenBuffer(l:bufname)
+  let l:bufnr = bufnr('%')
+  call ghostgit#util#Render(['  Loading blame for ' . l:file . '...'])
   
-  " Buffer configuration
-  setlocal filetype=ghostgit_blame
-  setlocal nomodifiable
-  
-  " Keymaps
-  nnoremap <silent><buffer> q :bd!<CR>
+  " Schedule async job
+  call ghostgit#job#Schedule('blame:' . l:file, ['git', 'blame', '--', l:file], {
+        \ 'bufnr': l:bufnr,
+        \ 'cwd': l:repo_root,
+        \ 'on_success': {lines -> ghostgit#util#RenderToBuffer(l:bufnr, lines)},
+        \ 'on_failure': {err -> ghostgit#util#Error('Failed to get blame for ' . l:file)}
+        \ })
 endfunction

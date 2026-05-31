@@ -188,10 +188,28 @@ function! ghostgit#core#RepoRoot(...) abort
   " Get current directory
   let l:cwd = get(a:000, 0, getcwd())
 
-  " Verify cache first for better performance
-  let l:entry = ghostgit#state#GetRepo(l:cwd)
+  " Use buffer-local cache only if it matches the current working directory,
+  " preventing stale cache hits when the cwd changes (e.g. across test cases).
+  if a:0 == 0 && exists('b:ghostgit_repo_root') && !empty(b:ghostgit_repo_root)
+    if exists('b:ghostgit_repo_cwd') && b:ghostgit_repo_cwd ==# l:cwd
+      if isdirectory(b:ghostgit_repo_root)
+        return b:ghostgit_repo_root
+      endif
+    endif
+    unlet! b:ghostgit_repo_root b:ghostgit_repo_cwd
+  endif
+
+  " Verify global cache first for better performance.
+  " Validate the cached directory still exists.
+  let l:entry = get(g:ghostgit_state.repos, l:cwd, {})
   if !empty(l:entry) && !empty(get(l:entry, 'git_dir', ''))
-    return l:entry.git_dir
+    if isdirectory(l:entry.git_dir)
+      if a:0 == 0
+        let b:ghostgit_repo_root = l:entry.git_dir
+        let b:ghostgit_repo_cwd = l:cwd
+      endif
+      return l:entry.git_dir
+    endif
   endif
 
   " Verify that the directory exists
@@ -199,7 +217,7 @@ function! ghostgit#core#RepoRoot(...) abort
     return ''
   endif
 
-  " Run a Git command to gain root access
+  " Run the git command to get root access
   let l:result = ghostgit#core#Run(['rev-parse', '--show-toplevel'], l:cwd, {'silent': 1})
 
   " Check result
@@ -208,12 +226,17 @@ function! ghostgit#core#RepoRoot(...) abort
 
     " Validate that the result is a valid directory
     if isdirectory(l:root)
-      " Caching the repository root
+      " Cache the repository root globally and locally
       call ghostgit#state#SetRepo(l:root)
       let g:ghostgit_state.repos[l:root].git_dir = l:root
+      " Also cache for the current directory specifically to avoid future rev-parse
+      let g:ghostgit_state.repos[l:cwd] = g:ghostgit_state.repos[l:root]
+
+      if a:0 == 0
+        let b:ghostgit_repo_root = l:root
+        let b:ghostgit_repo_cwd = l:cwd
+      endif
       return l:root
-    else
-      call ghostgit#util#Warn('Git root is not a valid directory: ' . l:root)
     endif
   endif
 

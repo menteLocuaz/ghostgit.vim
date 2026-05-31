@@ -5,28 +5,24 @@
 function! ghostgit#highlights#Init() abort
   " Core UI elements
   hi def link GhostGitHeader          Title
-  hi def link GhostGitSectionHeader   Title
+  hi def link GhostGitSectionHeader   Statement
   hi def link GhostGitSeparator       Comment
   hi def link GhostGitFooter          Comment
   hi def link GhostGitSummary         Directory
-  hi def link GhostGitLegend          Comment
+  hi def link GhostGitLegend          NonText
   hi def link GhostGitInfoMessage     SpecialComment
 
-  " Status indicators
-  hi def link GhostGitStagedIndex     DiffAdd
-  hi def link GhostGitUnstagedIndex   DiffChange
-  hi def link GhostGitUntrackedIndex  NonText
-  hi def link GhostGitConflictIndex   Error
-  hi def link GhostGitRenameIndex     String
-  hi def link GhostGitCopyIndex       String
-
+  " Status indicators (Mapped to standard Git types if possible)
+  hi def link GhostGitStagedIndex     Identifier
+  hi def link GhostGitUnstagedIndex   PreProc
+  hi def link GhostGitUntrackedIndex  Comment
+  hi def link GhostGitConflictIndex   ErrorMsg
+  
   " Lines
-  hi def link GhostGitStagedLine      DiffAdd
-  hi def link GhostGitUnstagedLine    DiffChange
-  hi def link GhostGitUntrackedLine   NonText
+  hi def link GhostGitStagedLine      None
+  hi def link GhostGitUnstagedLine    None
+  hi def link GhostGitUntrackedLine   Comment
   hi def link GhostGitConflictLine    Error
-  hi def link GhostGitRenameLine      String
-  hi def link GhostGitCopyLine        String
 
   " Specific conflict groups
   hi def link GhostGitConflictDD      ErrorMsg
@@ -35,25 +31,27 @@ function! ghostgit#highlights#Init() abort
   hi def link GhostGitConflictDU      ErrorMsg
 
   " Branches
-  hi def link GhostGitBranchCurrent   Special
+  hi def link GhostGitBranchCurrent   Type
   hi def link GhostGitBranchRemote    Comment
 
   " Commit info
-  hi def link GhostGitCommitHash      Identifier
+  hi def link GhostGitCommitHash      Number
   hi def link GhostGitCommitRefs      Special
+  hi def link GhostGitLogRef          Special
   hi def link GhostGitCommitAuthor    Constant
   hi def link GhostGitCommitDate      Comment
 
-  " Custom colors for better clarity (based on terminal background)
+  " High-visibility overrides for common Git states
+  " Green for staged, Yellow/Orange for modified, Red for untracked/conflict
   if &background == 'dark'
-    hi GhostGitStagedIndex        ctermfg=green  guifg=#98c379
-    hi GhostGitUnstagedIndex      ctermfg=yellow guifg=#e5c07b
-    hi GhostGitUntrackedIndex     ctermfg=red    guifg=#e06c75
-    hi GhostGitConflictIndex      ctermfg=white  ctermbg=red  guifg=#ffffff guibg=#be5046
+    hi GhostGitStagedIndex        guifg=#98c379 ctermfg=114
+    hi GhostGitUnstagedIndex      guifg=#e5c07b ctermfg=180
+    hi GhostGitUntrackedIndex     guifg=#abb2bf ctermfg=249
+    hi GhostGitConflictIndex      guifg=#e06c75 ctermfg=168
   else
-    hi GhostGitStagedIndex        ctermfg=green  guifg=#22863a
-    hi GhostGitUnstagedIndex      ctermfg=darkyellow guifg=#b08800
-    hi GhostGitUntrackedIndex     ctermfg=red    guifg=#cb2431
-    hi GhostGitConflictIndex      ctermfg=white  ctermbg=red  guifg=#000000 guibg=#cb2431
+    hi GhostGitStagedIndex        guifg=#22863a ctermfg=28
+    hi GhostGitUnstagedIndex      guifg=#b08800 ctermfg=136
+    hi GhostGitUntrackedIndex     guifg=#6a737d ctermfg=244
+    hi GhostGitConflictIndex      guifg=#cb2431 ctermfg=160
   endif
 endfunction

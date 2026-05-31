@@ -14,51 +14,43 @@ syn match GhostGitSectionHeader '^\(Changes to be committed:\|Changes not staged
 syn match GhostGitSectionHeader '^\(Local branches:\|Remote branches:\|Commit History:\)$'
 
 " Files in staging (ready for commit)
-syn match GhostGitStagedIndex '^  [MARC] ' containedin=GhostGitStagedLine
-syn match GhostGitStagedLine '^  [MARC] .*' contains=GhostGitStagedIndex
+" Using a more precise match for the status character
+syn match GhostGitStagedIndex '^  [MADRC] ' containedin=GhostGitStagedLine
+syn match GhostGitStagedLine '^  [MADRC] .*' contains=GhostGitStagedIndex
 
 " Files modified but not in staging
-syn match GhostGitUnstagedIndex '^  [ MADRCU] ' containedin=GhostGitUnstagedLine
-syn match GhostGitUnstagedLine '^  [ MADRCU] .*' contains=GhostGitUnstagedIndex
+syn match GhostGitUnstagedIndex '^  [MADRC] ' containedin=GhostGitUnstagedLine
+syn match GhostGitUnstagedLine '^  [MADRC] .*' contains=GhostGitUnstagedIndex
 
 " Untracked files
-syn match GhostGitUntrackedIndex '^  \?? ' containedin=GhostGitUntrackedLine
-syn match GhostGitUntrackedLine '^  \?? .*' contains=GhostGitUntrackedIndex
+syn match GhostGitUntrackedIndex '^  ?? ' containedin=GhostGitUntrackedLine
+syn match GhostGitUntrackedLine '^  ?? .*' contains=GhostGitUntrackedIndex
 
 " Conflicting files
-syn match GhostGitConflictIndex '^  [UD] ' containedin=GhostGitConflictLine
-syn match GhostGitConflictLine '^  [UD] .*' contains=GhostGitConflictIndex
-syn match GhostGitConflictDD '^  DD .*'
-syn match GhostGitConflictAU '^  AU .*'
-syn match GhostGitConflictUA '^  UA .*'
-syn match GhostGitConflictDU '^  DU .*'
-
-" Renamed or copied files
-syn match GhostGitRenameIndex '^  R ' containedin=GhostGitRenameLine
-syn match GhostGitRenameLine '^  R .*' contains=GhostGitRenameIndex
-syn match GhostGitCopyIndex '^  C ' containedin=GhostGitCopyLine
-syn match GhostGitCopyLine '^  C .*' contains=GhostGitCopyIndex
+" Matches symbols like '  UU ', '  AA ', or the simplified '  ! '
+syn match GhostGitConflictIndex '^  \(!\|[UDA]\{2\}\) ' containedin=GhostGitConflictLine
+syn match GhostGitConflictLine '^  \(!\|[UDA]\{2\}\) .*' contains=GhostGitConflictIndex
 
 " Branch information
-syn match GhostGitBranchCurrent '^\* .*' 
-syn match GhostGitBranchRemote '^  origin/.*'
+syn match GhostGitBranchCurrent '^\s*\* .*' 
+syn match GhostGitBranchRemote '^\s*origin/.*'
+syn match GhostGitHeader '^  GhostGit — .*' contains=GhostGitBranchCurrent
 
-" Separators and special lines
+" UI Elements
 syn match GhostGitSeparator '^  [─=]\+$'
-
-" Header and footer
-syn match GhostGitHeader '^  GhostGit.*$'
-syn match GhostGitFooter '^Help:.*$'
+syn match GhostGitFooter '^Commands:.*$'
 syn match GhostGitSummary '^Summary:.*$'
 syn match GhostGitLegend '^Legend:.*$'
 
-" Informational messages
-syn match GhostGitInfoMessage '^\(Summary\|Legend\):.*$'
-
-" Link to standardized groups defined in highlights.vim
-hi def link GhostGitConflictDD GhostGitConflictIndex
-hi def link GhostGitConflictAU GhostGitConflictIndex
-hi def link GhostGitConflictUA GhostGitConflictIndex
-hi def link GhostGitConflictDU GhostGitConflictIndex
+" Highlights linking
+hi def link GhostGitStagedIndex     GhostGitStagedIndex
+hi def link GhostGitUnstagedIndex   GhostGitUnstagedIndex
+hi def link GhostGitUntrackedIndex  GhostGitUntrackedIndex
+hi def link GhostGitConflictIndex   GhostGitConflictIndex
+hi def link GhostGitSectionHeader   GhostGitSectionHeader
+hi def link GhostGitHeader          GhostGitHeader
+hi def link GhostGitFooter          GhostGitFooter
+hi def link GhostGitSummary         GhostGitSummary
+hi def link GhostGitLegend          GhostGitLegend
 
 let b:current_syntax = "ghostgit_status"
