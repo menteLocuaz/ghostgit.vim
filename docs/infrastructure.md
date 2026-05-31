@@ -24,7 +24,7 @@ ghostgit.vim/
 │       │                       Reset, Diff, Checkout, Push, Pull, Branch, Commit)
 │       ├── status.vim          :GStatus buffer logic
 │       ├── util.vim            UI utilities (buffer mgmt, messaging)
-│       ├── state.vim           Global state manager (repos, buffers)
+│       ├── state.vim           Global state manager (repositories, buffers)
 │       ├── job.vim             Async job runner (Neovim/Vim8/fallback)
 │       ├── parser.vim          Git output parsers (status, log)
 │       ├── render.vim          Output renderers (status, log, diff, branches, generic)
@@ -37,7 +37,7 @@ ghostgit.vim/
 │       ├── remote.vim          Remote operations (:GBrowse)
 │       ├── complete.vim        Tab-completion for :Git/:G commands
 │       ├── highlights.vim      Syntax highlight group definitions
-│       └── test.vim            Test setup helpers (temp repos)
+│       └── test.vim            Test setup helpers (temp repositories)
 ├── ftplugin/
 │   ├── ghostgit_status.vim     Status buffer settings and keymaps
 │   ├── ghostgit_log.vim        Log buffer settings and keymaps
@@ -117,7 +117,7 @@ ghostgit.vim/
          ▼
   Service Modules (cross-cutting)
   complete.vim — tab-completion for :Git/:G
-  test.vim     — temp repo setup/teardown for specs
+  test.vim     — temp repository setup/teardown for specs
 
   Test Layer (vader.vim)
   11 .vader spec files — 77 tests — 129 assertions
@@ -164,7 +164,7 @@ Single point of git execution via `systemlist()`. All git commands flow through 
 | `Execute(args)` | Smart output for `:Git` — if empty opens `:GStatus`; if output >10 lines opens scratch buffer with syntax; otherwise echoes lines. |
 | `RepoRoot(...cwd)` | `git rev-parse --show-toplevel`. Caches result in state. |
 | `CurrentBranch(...cwd)` | `git rev-parse --abbrev-ref HEAD`. Returns `'HEAD detached at <hash>'` when applicable. |
-| `IsRepo(...cwd)` | `git rev-parse --git-dir` (silent). Returns 1 if in a repo. |
+| `IsRepo(...cwd)` | `git rev-parse --git-dir` (silent). Returns 1 if in a repository. |
 | `ListBranches(...cwd)` | `git branch --format ...` + `git branch -r --format ...`. Returns combined local + remote branch list. |
 | `LastCommit(...cwd)` | Returns dict `{hash, subject, author, date}` for HEAD. |
 
@@ -205,7 +205,7 @@ Global state manager. Stores repository metadata and buffer state across the ses
 
 | Function | Purpose |
 |---|---|
-| `Init()` | Creates `g:ghostgit_state` dict with `repos` and `buffers` sub-dicts. Idempotent. |
+| `Init()` | Creates `g:ghostgit_state` dict with `repositories` and `buffers` sub-dicts. Idempotent. |
 | `SetRepo(root)` | Registers a repository root in state |
 | `GetRepo(...root)` | Returns repository dict (branch, git_dir, last_refresh) or `{}` |
 | `SetBuffer(name, type)` | Stores current buffer metadata (bufnr, type, repository_root) |
@@ -276,7 +276,7 @@ End-to-end implementation of `:GLog`.
 
 | Function | Purpose |
 |---|---|
-| `Open()` | Runs `git blame -- <current-file>`, opens scratch buffer `ghostgit://blame/<file>`, sets filetype `ghostgit_blame`, maps `q` to close. |
+| `Open()` | Runs `git blame -- <current-file>`, opens scratch buffer `ghostgit://blame/<file>`, sets file type `ghostgit_blame`, maps `q` to close. |
 
 ### Layer 4 — `autoload/ghostgit/branch.vim`
 
@@ -295,7 +295,7 @@ End-to-end implementation of `:GLog`.
 
 | Function | Purpose |
 |---|---|
-| `Dispatch(action_name, ...target)` | Routes action to status or log handler based on filetype |
+| `Dispatch(action_name, ...target)` | Routes action to status or log handler based on file type |
 | `OpenFile()` | `:edit` the file under cursor (parsed from status buffer line) |
 | `VSplitFile()` | `:vsplit` the file under cursor |
 
@@ -324,7 +324,7 @@ Test helpers for creating isolated temporary git repositories.
 | `Setup()` | Creates temp dir, runs `git init -b main`, sets user config, creates initial commit. Returns temp dir path. |
 | `SetupEmptyRepo()` | Same as Setup but without the initial commit. |
 | `CreateFile(dir, path, content)` | Writes a file at `dir/path` with given content, creating parent dirs as needed. |
-| `StageFile(dir, path)` | Runs `git add -- <path>` in the temp repo. |
+| `StageFile(dir, path)` | Runs `git add -- <path>` in the temp repository. |
 | `Teardown(dir)` | Recursively deletes temp directory. |
 
 ## Dependency Graph
@@ -453,7 +453,7 @@ vim -c "set rtp^=\$PROJ" -c 'Vader! test/specs/*.vader' -c 'q!'
 11 `.vader` spec files — 77 tests — 129 assertions. All green.
 7 `_spec.vim` scaffold files for future tests (currently empty).
 
-Tests create real temporary git repos via `ghostgit#test#Setup()` and clean up via `ghostgit#test#Teardown()`. The `test/helpers/assert.vim` module provides `Equals`, `True`, and `NotEmpty` assertion functions.
+Tests create real temporary git repositories via `ghostgit#test#Setup()` and clean up via `ghostgit#test#Teardown()`. The `test/helpers/assert.vim` module provides `Equals`, `True`, and `NotEmpty` assertion functions.
 
 ## Module Status
 
@@ -478,4 +478,4 @@ All 18 modules are implemented:
 | `remote.vim` | Done | 44 | `:GBrowse` (open remote in browser) |
 | `complete.vim` | Done | 102 | Tab-completion for `:Git`/`:G` |
 | `highlights.vim` | Done | 59 | Syntax highlight group definitions |
-| `test.vim` | Done | 47 | Test helpers (temp repo setup/teardown) |
+| `test.vim` | Done | 47 | Test helpers (temp repository setup/teardown) |
