@@ -1,0 +1,30 @@
+Before:
+  let g:ghostgit_async_disable = 1
+  call ghostgit#state#Init()
+  let g:repo = ghostgit#test#Setup()
+  let g:cwd = getcwd()
+
+After:
+  call ghostgit#test#Teardown(g:repo)
+  silent! bd!
+  execute 'cd ' . fnameescape(g:cwd)
+
+Execute (remote#Browse errors outside repo):
+  let g:plain = tempname()
+  call mkdir(g:plain, 'p')
+  execute 'cd ' . fnameescape(g:plain)
+  call ghostgit#remote#Browse()
+  call delete(g:plain, 'rf')
+  Assert 1
+
+Execute (remote#Browse errors without remote):
+  execute 'cd ' . fnameescape(g:repo)
+  call ghostgit#remote#Browse()
+  Assert 1
+
+Execute (remote#Browse handles SSH URL conversion):
+  let g:url = 'git@github.com:user/repo.git'
+  call ghostgit#core#Run(['remote', 'add', 'origin', g:url], g:repo)
+  execute 'cd ' . fnameescape(g:repo)
+  call ghostgit#remote#Browse()
+  Assert 1

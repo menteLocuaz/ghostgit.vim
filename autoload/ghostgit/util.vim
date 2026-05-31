@@ -57,27 +57,34 @@ endfunction
 function! ghostgit#util#RenderToBuffer(bufnr, lines) abort
   if !bufexists(a:bufnr) | return | endif
 
-  " Get current state of the buffer to restore later if needed
+  " Ensure lines is a list
+  let l:lines = type(a:lines) == v:t_list ? a:lines : []
+
+  " Neovim-specific optimization
+  if has('nvim-0.5')
+    let l:is_modifiable = nvim_buf_get_option(a:bufnr, 'modifiable')
+    call nvim_buf_set_option(a:bufnr, 'modifiable', v:true)
+    call nvim_buf_set_lines(a:bufnr, 0, -1, v:false, l:lines)
+    silent! call nvim_buf_set_option(a:bufnr, 'modifiable', l:is_modifiable)
+    return
+  endif
+
+  " Vim 8 / Fallback
   let l:is_modifiable = getbufvar(a:bufnr, '&modifiable')
   let l:is_readonly = getbufvar(a:bufnr, '&readonly')
 
-  " Make the buffer temporarily modifiable and not readonly
-  call setbufvar(a:bufnr, '&modifiable', 1)
-  call setbufvar(a:bufnr, '&readonly', 0)
-  
-  " Clear current buffer contents and insert new lines
-  " Note: deletebufline and setbufline work in the background
+  silent! call setbufvar(a:bufnr, '&modifiable', 1)
+  silent! call setbufvar(a:bufnr, '&readonly', 0)
+
   silent! call deletebufline(a:bufnr, 1, '$')
-  
   if empty(a:lines)
     call setbufline(a:bufnr, 1, [''])
   else
     call setbufline(a:bufnr, 1, a:lines)
   endif
-  
-  " Restore modifiable and readonly flags
-  call setbufvar(a:bufnr, '&modifiable', l:is_modifiable)
-  call setbufvar(a:bufnr, '&readonly', l:is_readonly)
+
+  silent! call setbufvar(a:bufnr, '&modifiable', l:is_modifiable)
+  silent! call setbufvar(a:bufnr, '&readonly', l:is_readonly)
 endfunction
 
 " Show error message

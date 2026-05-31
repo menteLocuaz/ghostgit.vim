@@ -34,6 +34,7 @@ function! ghostgit#diff#Open(file, ...) abort
   
   " Create or open diff buffer immediately
   call ghostgit#util#OpenBuffer(l:bufname, 'botright')
+  setlocal filetype=diff
   let l:bufnr = bufnr('%')
   call ghostgit#util#Render(['  Loading diff for ' . a:file . '...'])
 

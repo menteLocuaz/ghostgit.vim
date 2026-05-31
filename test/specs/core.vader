@@ -2,6 +2,9 @@
 " ghostgit - Core API Tests
 " ============================================================================
 
+Before:
+  call ghostgit#state#Init()
+
 Execute (ghostgit#core#IsRepo returns boolean):
   Assert type(ghostgit#core#IsRepo()) == v:t_number
 

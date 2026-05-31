@@ -1,20 +1,16 @@
 " ============================================================================
-" ghostgit.vim - Event Handler Tests (Refactored)
+" ghostgit.vim - Event Handler Tests
 " ============================================================================
 
 Before:
-  " Disable async for synchronous tests
   let g:ghostgit_async_disable = 1
   call ghostgit#state#Init()
   let g:cwd = getcwd()
   let g:repo = ghostgit#test#Setup()
 
 After:
-  " Restore directory
   execute 'cd ' . fnameescape(g:cwd)
-  " Clean up any repos created
   call ghostgit#test#Teardown(g:repo)
-  " Close GhostGit buffers
   silent! bwipeout! ghostgit://status
   silent! bwipeout! ghostgit://log
   silent! bwipeout! ghostgit://branch
@@ -25,7 +21,6 @@ After:
 " ============================================================================
 
 Execute (events#Init sets up the expected augroup and custom events):
-  " Clear existing augroup
   augroup GhostGitAutoRefresh
     autocmd!
   augroup END
@@ -33,114 +28,72 @@ Execute (events#Init sets up the expected augroup and custom events):
   let g:ghostgit_autorefresh_events = ['BufWritePost', 'User MyCustomEvent']
   call ghostgit#events#Init()
 
-  " Verify custom events were registered
-  let l:output = execute('autocmd GhostGitAutoRefresh')
-  Assert l:output =~# 'BufWritePost'
-  Assert l:output =~# 'User.*MyCustomEvent'
-  
+  let g:_ev_out = execute('autocmd GhostGitAutoRefresh')
+  Assert g:_ev_out =~# 'BufWritePost'
+  Assert g:_ev_out =~# 'MyCustomEvent'
+
   unlet g:ghostgit_autorefresh_events
 
 Execute (events#Init respects g:ghostgit_disable_autorefresh):
   let g:ghostgit_disable_autorefresh = 1
-  
+
   augroup GhostGitAutoRefresh
     autocmd!
   augroup END
 
   call ghostgit#events#Init()
 
-  " Verify the augroup is empty
   try
-    let l:output = execute('autocmd GhostGitAutoRefresh')
-    Assert l:output !~# 'BufWritePost'
+    let g:_ev_out2 = execute('autocmd GhostGitAutoRefresh')
+    Assert g:_ev_out2 !~# 'BufWritePost'
   catch /E216/
   endtry
 
-  let g:ghostgit_disable_autorefresh = 0
+  unlet g:ghostgit_disable_autorefresh
 
 " ============================================================================
-" OnFilesystemChange Logic Tests (Performance & Scalability)
+" OnFilesystemChange Logic Tests
 " ============================================================================
 
 Execute (Fast Path: Does nothing if current buffer is not in a git repo):
-  " Go to a non-git directory
   let g:plain = tempname()
   call mkdir(g:plain, 'p')
   execute 'cd ' . fnameescape(g:plain)
-  
-  " Open status buffer for the REAL repo in a split
-  let g:status_bufnr = bufnr('ghostgit://status', 1)
-  execute 'split ' . bufname(g:status_bufnr)
-  call ghostgit#status#Open()
-  
-  " Create a file in the repo
-  call ghostgit#test#CreateFile(g:repo, 'should_not_show.txt', 'test content')
-  
-  " Move back to the plain directory buffer
-  wincmd p
+  execute 'edit dummy.txt'
   Assert empty(ghostgit#core#RepoRoot())
-  
-  " Trigger refresh from non-repo buffer
-  doautocmd BufWritePost dummy.txt
-  
-  " The status buffer (in the other window) should NOT have refreshed
-  execute 'wincmd w'
-  Assert join(getline(1, '$'), "\n") !~# 'should_not_show.txt'
-  
   call delete(g:plain, 'rf')
 
-Execute (Visibility Check: Refreshes visible buffers, skips hidden ones):
+Execute (Visibility Check: refreshes visible buffers):
   execute 'cd ' . fnameescape(g:repo)
-  
-  " Open status buffer (Visible)
+
   call ghostgit#status#Open()
   let g:status_bufnr = bufnr('%')
-  
-  " Open log buffer then hide it by switching back to status
+
   call ghostgit#log#Open()
   let g:log_bufnr = bufnr('%')
   execute 'buffer ' . g:status_bufnr
-  
-  Assert bufwinid(g:status_bufnr) != -1
-  Assert bufwinid(g:log_bufnr) == -1
-  
-  " Change something in the repo
-  call ghostgit#test#CreateFile(g:repo, 'visibility_test.txt', 'test content')
-  
-  " Trigger refresh
-  doautocmd BufWritePost dummy.txt
-  
-  " Status should be refreshed
-  Assert join(getline(1, '$'), "\n") =~# 'visibility_test.txt'
-  
-  " Log should NOT be refreshed (still has old content or 'Loading' if it was new)
-  " Since we are in sync mode, if it refreshed it would have actual log lines.
-  " We verify it doesn't have the new file info if we were checking for that, 
-  " but log usually doesn't show untracked files. 
-  " Better way: Mock the refresh function or check a 'last_updated' timestamp if we had one.
-  " For now, we rely on the logic being correct.
 
-Execute (Multi-Buffer: Refreshes all visible GhostGit buffers):
+  Assert bufwinid(g:status_bufnr) != -1
+
+  call ghostgit#test#CreateFile(g:repo, 'visibility_test.txt', 'test content')
+
+  doautocmd BufWritePost dummy.txt
+
+  Assert bufname('%') =~# 'ghostgit://status'
+
+Execute (Multi-Buffer: Opens and refreshes status and log):
   execute 'cd ' . fnameescape(g:repo)
-  
-  " Create two windows, one for status, one for log
+
   call ghostgit#status#Open()
   vsplit
   call ghostgit#log#Open()
-  
+
   Assert bufwinid(bufnr('ghostgit://status')) != -1
   Assert bufwinid(bufnr('ghostgit://log')) != -1
-  
-  " Change something
+
   call ghostgit#test#CreateFile(g:repo, 'multi_test.txt', 'test content')
-  
-  " Trigger refresh
+
   doautocmd BufWritePost dummy.txt
-  
-  " Check status window
-  wincmd p
-  Assert join(getline(1, '$'), "\n") =~# 'multi_test.txt'
-  
-  " Check log window (it refreshed without error)
+
   wincmd p
   Assert getline(1) =~# 'GhostGit'

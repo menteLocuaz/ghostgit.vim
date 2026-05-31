@@ -1,48 +1,61 @@
 Before:
+  let g:ghostgit_async_disable = 1
+  call ghostgit#state#Init()
   let g:repo = ghostgit#test#Setup()
   call ghostgit#test#CreateFile(g:repo, 'staged.txt', 'hello')
   call ghostgit#test#CreateFile(g:repo, 'unstaged.txt', 'world')
   call ghostgit#test#CreateFile(g:repo, 'untracked.txt', 'new')
   call ghostgit#test#StageFile(g:repo, 'staged.txt')
   let g:cwd = getcwd()
-  execute 'cd ' . fnameescape(g:repo)
-  new
-  call setline(1, ['Header', '  M  staged.txt', '   M unstaged.txt', '  ?? untracked.txt'])
 
 After:
   silent! bd!
   call ghostgit#test#Teardown(g:repo)
   execute 'cd ' . fnameescape(g:cwd)
 
-Execute (OpenFile opens staged file):
-  call cursor(2, 1)
+Execute (OpenFile opens staged file from status buffer):
+  execute 'cd ' . fnameescape(g:repo)
+  call ghostgit#status#Open()
+  call ghostgit#status#Refresh()
+  call search('staged.txt')
   call ghostgit#action#OpenFile()
   Assert bufname('%') =~# 'staged.txt$'
 
-Execute (OpenFile opens unstaged file):
-  call cursor(3, 1)
+Execute (OpenFile opens unstaged file from status buffer):
+  execute 'cd ' . fnameescape(g:repo)
+  call ghostgit#status#Open()
+  call ghostgit#status#Refresh()
+  call search('unstaged.txt')
   call ghostgit#action#OpenFile()
   Assert bufname('%') =~# 'unstaged.txt$'
 
-Execute (OpenFile opens untracked file):
-  call cursor(4, 1)
+Execute (OpenFile opens untracked file from status buffer):
+  execute 'cd ' . fnameescape(g:repo)
+  call ghostgit#status#Open()
+  call ghostgit#status#Refresh()
+  call search('untracked.txt')
   call ghostgit#action#OpenFile()
   Assert bufname('%') =~# 'untracked.txt$'
 
 Execute (OpenFile does nothing on header line):
+  execute 'cd ' . fnameescape(g:repo)
+  call ghostgit#status#Open()
+  call ghostgit#status#Refresh()
   call cursor(1, 1)
   call ghostgit#action#OpenFile()
   Assert 1
 
 Execute (OpenFile does nothing on empty current buffer):
-  new
   enew
   call ghostgit#action#OpenFile()
   Assert 1
 
 Execute (VSplitFile opens in vertical split):
+  execute 'cd ' . fnameescape(g:repo)
+  call ghostgit#status#Open()
+  call ghostgit#status#Refresh()
   let g:win_count = winnr('$')
-  call cursor(2, 1)
+  call search('staged.txt')
   call ghostgit#action#VSplitFile()
   Assert winnr('$') == g:win_count + 1
   Assert bufname('%') =~# 'staged.txt$'
