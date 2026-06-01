@@ -90,9 +90,10 @@ function! ghostgit#status#Stage() abort
     return
   endif
 
-  " Run git add
-  call ghostgit#git#Add(l:item.file)
-  call ghostgit#status#Refresh()
+  " Run git add asynchronously
+  call ghostgit#git#Add(l:item.file, {
+        \ 'on_exit': {job, code -> ghostgit#status#Refresh()}
+        \ })
 endfunction
 
 " Remove file from stage
@@ -104,9 +105,10 @@ function! ghostgit#status#Unstage() abort
     return
   endif
 
-  " Run git reset
-  call ghostgit#git#Reset(l:item.file)
-  call ghostgit#status#Refresh()
+  " Run git reset asynchronously
+  call ghostgit#git#Reset(l:item.file, {
+        \ 'on_exit': {job, code -> ghostgit#status#Refresh()}
+        \ })
 endfunction
 
 " Open diff for the selected file

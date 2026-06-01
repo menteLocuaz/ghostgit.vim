@@ -13,7 +13,7 @@ let s:jobs = {}
 " Queue system
 let s:queue = []
 let s:running = 0
-let s:max_concurrent = 3
+let s:max_concurrent = get(g:, 'ghostgit_max_jobs', 3)
 
 " Named jobs: name -> {id, run_id, bufnr}
 let s:named_jobs = {}

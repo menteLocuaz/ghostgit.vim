@@ -4,8 +4,10 @@
 
 Before:
   let g:ghostgit_async_disable = 1
+  call ghostgit#state#Clear()
   let g:repo = ghostgit#test#Setup()
   let g:cwd = getcwd()
+  let g:default_branch = ghostgit#core#CurrentBranch(g:repo)
 
 After:
   " Limpiar repositorio de prueba
@@ -21,7 +23,7 @@ After:
 Execute (ghostgit#git#Status returns branch info):
   let g:result = ghostgit#git#Status(g:repo)
   Assert len(g:result) > 0
-  Assert g:result[0] =~# '## main'
+  Assert g:result[0] =~# '## ' . g:default_branch
 
 Execute (ghostgit#git#Status with explicit format):
   let g:result = ghostgit#git#Status(g:repo, '--porcelain')
@@ -223,15 +225,15 @@ Execute (ghostgit#git#Branch lists branches):
   " Obtener lista de ramas
   let g:branches = ghostgit#git#Branch(g:repo)
   Assert len(g:branches) > 0
-  Assert g:branches[0] =~# '\* main'
+  Assert g:branches[0] =~# '\* ' . g:default_branch
 
 Execute (ghostgit#git#Checkout switches branches):
   call ghostgit#core#Run(['checkout', '-b', 'test-branch'], g:repo)
   let g:branch = ghostgit#core#CurrentBranch(g:repo)
   Assert g:branch ==# 'test-branch'
-  call ghostgit#git#Checkout('main', g:repo)
+  call ghostgit#git#Checkout(g:default_branch, g:repo)
   let g:branch = ghostgit#core#CurrentBranch(g:repo)
-  Assert g:branch ==# 'main'
+  Assert g:branch ==# g:default_branch
 
 " ============================================================================
 " Edge Cases and Error Handling Tests

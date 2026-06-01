@@ -102,6 +102,11 @@ endfunction
 
 " Parse full `git status --short --branch` output
 function! ghostgit#parser#ParseStatusOutput(lines) abort
+  " Performance optimization for Neovim: use Lua for parsing
+  if has('nvim')
+    return luaeval('require("ghostgit.parser").parse_status_output(_A)', a:lines)
+  endif
+
   let l:result = {
         \ 'branch': '',
         \ 'upstream': '',
@@ -109,7 +114,7 @@ function! ghostgit#parser#ParseStatusOutput(lines) abort
         \ 'behind': 0,
         \ 'items': []
         \ }
-
+...
   if empty(a:lines)
     return l:result
   endif

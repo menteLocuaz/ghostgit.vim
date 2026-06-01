@@ -96,7 +96,7 @@ function! ghostgit#commit#Finish() abort
   
   " If there is no message, abort
   if empty(l:message_lines)
-    call ghostgit#util#Warning('Empty commit message. Commit aborted.')
+    call ghostgit#util#Warn('Empty commit message. Commit aborted.')
     call ghostgit#commit#Cancel()
     return
   endif
@@ -108,7 +108,6 @@ function! ghostgit#commit#Finish() abort
   let l:opts = get(b:, 'ghostgit_commit_opts', '')
   let l:repo_root = get(b:, 'ghostgit_repo_root', '')
   let l:msg_file = expand('%:p')
-  let l:bufnr = bufnr('%')
   
   " Remove autocmd before closing the buffer
   augroup GhostGitCommit
@@ -126,20 +125,23 @@ function! ghostgit#commit#Finish() abort
     endfor
   endif
   
-  " Run git commit with error handling
-  try
-    let l:output = ghostgit#core#Run(l:args)
-    if !empty(l:output)
-      call ghostgit#util#Info('Changes committed successfully')
-    else
-      call ghostgit#util#Info('Commit completed')
-    endif
-    
-    " Refresh status if open
-    call ghostgit#commit#RefreshStatus()
-  catch
-    call ghostgit#util#Error('Failed to commit changes: ' . v:exception)
-  endtry
+  " Run git commit asynchronously
+  call ghostgit#core#Run(l:args, l:repo_root, {
+        \ 'on_success': {lines -> s:OnCommitSuccess(lines)},
+        \ 'on_failure': {err -> ghostgit#util#Error('Failed to commit: ' . join(err, "\n"))}
+        \ })
+endfunction
+
+" Callback for commit success
+function! s:OnCommitSuccess(output) abort
+  if !empty(a:output)
+    call ghostgit#util#Info('Changes committed successfully: ' . get(a:output, 0, ''))
+  else
+    call ghostgit#util#Info('Commit completed')
+  endif
+  
+  " Refresh status if open
+  call ghostgit#commit#RefreshStatus()
 endfunction
 
 " Cancel the commit process

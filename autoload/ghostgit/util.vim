@@ -3,9 +3,19 @@
 " ============================================================================
 
 " Open or reuse a special GhostGit buffer
+" opts:
+"   mods     - window modifiers (e.g., 'botright', 'vertical')
+"   filetype - buffer filetype
+"   syntax   - syntax highlighting
 function! ghostgit#util#OpenBuffer(name, ...) abort
-  " Get window modifiers, use 'botright' as default
-  let l:mods = get(a:000, 0, 'botright')
+  let l:opts = get(a:000, 0, {})
+  
+  " Handle legacy 'mods' string as second argument
+  if type(l:opts) == v:t_string
+    let l:opts = {'mods': l:opts}
+  endif
+
+  let l:mods = get(l:opts, 'mods', 'botright')
   let l:bufname = 'ghostgit://' . a:name
 
   " Reuse window if it's already open
@@ -18,6 +28,7 @@ function! ghostgit#util#OpenBuffer(name, ...) abort
   " Reuse existing buffer if it exists (even if not in a window)
   let l:existing = bufnr(l:bufname)
   if l:existing != -1
+    execute l:mods . ' split'
     execute 'buffer ' . l:existing
     return
   endif
@@ -39,9 +50,19 @@ function! ghostgit#util#OpenBuffer(name, ...) abort
   setlocal cursorline
   setlocal signcolumn=no
   
-  " Set base file type for GhostGit buffers (use only first segment to keep it valid)
-  let l:ft = substitute(split(a:name, '/')[0], '[^[:alnum:]_.]', '_', 'g')
-  execute 'setlocal filetype=ghostgit_' . l:ft
+  " Set filetype
+  if has_key(l:opts, 'filetype')
+    execute 'setlocal filetype=' . l:opts.filetype
+  else
+    " Default filetype based on name
+    let l:ft = substitute(split(a:name, '/')[0], '[^[:alnum:]_.]', '_', 'g')
+    execute 'setlocal filetype=ghostgit_' . l:ft
+  endif
+
+  " Set syntax
+  if has_key(l:opts, 'syntax')
+    execute 'setlocal syntax=' . l:opts.syntax
+  endif
 
   " Universal mappings to close the buffer
   nnoremap <silent><buffer> q :bd!<CR>
@@ -106,6 +127,15 @@ function! ghostgit#util#Warn(msg) abort
   echohl WarningMsg
   echom '[ghostgit] ' . a:msg
   echohl None
+endfunction
+
+" Show debug message (only when g:ghostgit_debug is set)
+function! ghostgit#util#Debug(msg) abort
+  if exists('g:ghostgit_debug') && g:ghostgit_debug
+    echohl Debug
+    echom '[ghostgit] ' . a:msg
+    echohl None
+  endif
 endfunction
 
 " Get the full buffer name for a given name
