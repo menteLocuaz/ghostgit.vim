@@ -12,7 +12,7 @@ function M.parse_status_line(line)
   local index = line:sub(1, 1)
   local worktree = line:sub(2, 2)
   local file = line:sub(4)
-  
+
   local result = {
     index = index,
     worktree = worktree,
@@ -50,17 +50,17 @@ function M.parse_status_output(lines)
   for _, line in ipairs(lines) do
     if line:sub(1, 3) == "## " then
       local branch_info = line:sub(4)
-      
+
       -- Ahead/Behind
       local ahead = branch_info:match("%[ahead (%d+)")
       local behind = branch_info:match("behind (%d+)%]")
       if not behind then
         behind = branch_info:match("%[behind (%d+)%]")
       end
-      
+
       result.ahead = tonumber(ahead) or 0
       result.behind = tonumber(behind) or 0
-      
+
       -- Branch and upstream
       local clean_info = branch_info:gsub("%s%[.*%]$", "")
       local branch, upstream = clean_info:match("([^%.%.%.]+)%.%.%.(.+)")
