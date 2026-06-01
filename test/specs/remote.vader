@@ -4,7 +4,7 @@
 
 Before:
   let g:ghostgit_async_disable = 1
-  call ghostgit#state#Init()
+  call ghostgit#state#Clear()
   let g:repo = ghostgit#test#Setup()
   let g:cwd = getcwd()
 
@@ -150,25 +150,21 @@ Execute (LineRangeSuffix returns empty for line1 <= 0):
 " ============================================================================
 
 Execute (GetRemoteURL returns empty without remotes):
-  execute 'cd ' . fnameescape(g:repo)
-  let g:url = ghostgit#remote#GetRemoteURL('origin')
+  let g:url = ghostgit#remote#GetRemoteURL('origin', g:repo)
   AssertEqual '', g:url
 
 Execute (GetRemoteURL returns URL for existing remote):
-  execute 'cd ' . fnameescape(g:repo)
   call ghostgit#core#Run(['remote', 'add', 'origin', 'https://github.com/user/repo'], g:repo)
-  let g:url = ghostgit#remote#GetRemoteURL('origin')
+  let g:url = ghostgit#remote#GetRemoteURL('origin', g:repo)
   AssertEqual 'https://github.com/user/repo', g:url
 
 Execute (GetRemoteURL converts SSH URL):
-  execute 'cd ' . fnameescape(g:repo)
   call ghostgit#core#Run(['remote', 'add', 'origin', 'git@github.com:user/repo.git'], g:repo)
-  let g:url = ghostgit#remote#GetRemoteURL('origin')
+  let g:url = ghostgit#remote#GetRemoteURL('origin', g:repo)
   AssertEqual 'https://github.com/user/repo', g:url
 
 Execute (GetRemoteURL returns empty for nonexistent remote):
-  execute 'cd ' . fnameescape(g:repo)
-  let g:url = ghostgit#remote#GetRemoteURL('nonexistent')
+  let g:url = ghostgit#remote#GetRemoteURL('nonexistent', g:repo)
   AssertEqual '', g:url
 
 " ============================================================================
@@ -176,23 +172,20 @@ Execute (GetRemoteURL returns empty for nonexistent remote):
 " ============================================================================
 
 Execute (List returns empty without remotes):
-  execute 'cd ' . fnameescape(g:repo)
-  let g:list = ghostgit#remote#List()
+  let g:list = ghostgit#remote#List(g:repo)
   AssertEqual [], g:list
 
 Execute (List returns remotes with URLs):
-  execute 'cd ' . fnameescape(g:repo)
   call ghostgit#core#Run(['remote', 'add', 'origin', 'https://github.com/user/repo'], g:repo)
-  let g:list = ghostgit#remote#List()
+  let g:list = ghostgit#remote#List(g:repo)
   AssertEqual 1, len(g:list)
   AssertEqual 'origin', g:list[0].name
   AssertEqual 'https://github.com/user/repo', g:list[0].url
 
 Execute (List returns multiple remotes):
-  execute 'cd ' . fnameescape(g:repo)
   call ghostgit#core#Run(['remote', 'add', 'origin', 'https://github.com/user/repo'], g:repo)
   call ghostgit#core#Run(['remote', 'add', 'upstream', 'https://github.com/upstream/repo'], g:repo)
-  let g:list = ghostgit#remote#List()
+  let g:list = ghostgit#remote#List(g:repo)
   AssertEqual 2, len(g:list)
   AssertEqual 'origin', g:list[0].name
   AssertEqual 'upstream', g:list[1].name
@@ -200,8 +193,7 @@ Execute (List returns multiple remotes):
 Execute (List returns empty outside repo):
   let g:outside = tempname()
   call mkdir(g:outside, 'p')
-  execute 'cd ' . fnameescape(g:outside)
-  let g:list = ghostgit#remote#List()
+  let g:list = ghostgit#remote#List(g:outside)
   AssertEqual [], g:list
   call delete(g:outside, 'rf')
 
@@ -236,8 +228,9 @@ Execute (OpenURL rejects empty URL):
 " ============================================================================
 
 Execute (BrowseFile delegates to Browse inside repo with remote):
-  execute 'cd ' . fnameescape(g:repo)
   call ghostgit#core#Run(['remote', 'add', 'origin', 'https://github.com/user/repo'], g:repo)
+  call ghostgit#test#CreateFile(g:repo, 'test_browse.txt', 'hello')
+  execute 'edit ' . fnameescape(g:repo . '/test_browse.txt')
 
   let g:captured_url = ''
   function! ghostgit#remote#OpenURL(url) abort
@@ -247,15 +240,16 @@ Execute (BrowseFile delegates to Browse inside repo with remote):
   call ghostgit#remote#BrowseFile()
   Assert g:captured_url =~# 'https://github.com/user/repo'
   Assert g:captured_url =~# '/blob/'
+  bwipeout!
 
 " ============================================================================
 " Browse — integration
 " ============================================================================
 
 Execute (Browse builds URL with remote and file):
-  execute 'cd ' . fnameescape(g:repo)
   call ghostgit#core#Run(['remote', 'add', 'origin', 'https://github.com/user/repo'], g:repo)
   call ghostgit#test#CreateFile(g:repo, 'test.txt', 'hello')
+  execute 'edit ' . fnameescape(g:repo . '/test.txt')
 
   let g:captured = ''
   function! ghostgit#remote#OpenURL(url) abort
@@ -266,11 +260,12 @@ Execute (Browse builds URL with remote and file):
   Assert g:captured =~# 'https://github.com/user/repo'
   Assert g:captured =~# 'test.txt'
   Assert g:captured =~# '#L1'
+  bwipeout!
 
 Execute (Browse builds URL with line range):
-  execute 'cd ' . fnameescape(g:repo)
   call ghostgit#core#Run(['remote', 'add', 'origin', 'https://github.com/user/repo'], g:repo)
-  call ghostgit#test#CreateFile(g:repo, 'test.txt', "line1\nline2\nline3")
+  call ghostgit#test#CreateFile(g:repo, 'test_range.txt', "line1\nline2\nline3")
+  execute 'edit ' . fnameescape(g:repo . '/test_range.txt')
 
   let g:captured = ''
   function! ghostgit#remote#OpenURL(url) abort
@@ -279,16 +274,21 @@ Execute (Browse builds URL with line range):
 
   call ghostgit#remote#Browse(1, 3)
   Assert g:captured =~# '#L1-L3'
+  bwipeout!
 
 Execute (Browse errors outside repo):
   let g:outside = tempname()
   call mkdir(g:outside, 'p')
-  execute 'cd ' . fnameescape(g:outside)
+  " Open a buffer outside any git repo so RepoRoot fails
+  execute 'edit ' . fnameescape(g:outside . '/outside_file.txt')
+  call writefile([], g:outside . '/outside_file.txt')
   call ghostgit#remote#Browse(1, 1)
   call delete(g:outside, 'rf')
+  bwipeout!
   Assert 1
 
 Execute (Browse errors without remote):
-  execute 'cd ' . fnameescape(g:repo)
+  execute 'edit ' . fnameescape(g:repo . '/.')
   call ghostgit#remote#Browse(1, 1)
+  bwipeout!
   Assert 1

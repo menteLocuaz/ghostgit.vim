@@ -22,13 +22,12 @@ function M.parse_status_line(line)
   }
 
   if index == "R" or index == "C" or worktree == "R" or worktree == "C" then
-    local parts = {}
-    for part in string.gmatch(file, "([^%->]+)") do
-      table.insert(parts, part:gsub("^%s*(.-)%s*$", "%1"))
-    end
-    if #parts == 2 then
-      result.file = parts[2]
-      result.original_file = parts[1]
+    local arrow = file:find(" %-> ")
+    if arrow then
+      local original = file:sub(1, arrow - 1)
+      local renamed = file:sub(arrow + 4)
+      result.file = renamed
+      result.original_file = original
     end
   end
 
@@ -72,7 +71,22 @@ function M.parse_status_output(lines)
         result.branch = clean_info
       end
     elseif line:sub(1, 1) == "#" then
-      -- Skip detailed branch info for now or implement if needed
+      -- Parse # branch.head <name>
+      local branch_head = line:match("^# branch%.head%s+(.+)$")
+      if branch_head then
+        result.branch = branch_head
+      end
+      -- Parse # branch.upstream <name>
+      local branch_upstream = line:match("^# branch%.upstream%s+(.+)$")
+      if branch_upstream then
+        result.upstream = branch_upstream
+      end
+      -- Parse # branch.ab +<ahead> -<behind>
+      local ahead, behind = line:match("^# branch%.ab%s%+(%d+)%s%-+(%d+)$")
+      if ahead then
+        result.ahead = tonumber(ahead) or 0
+        result.behind = tonumber(behind) or 0
+      end
     elseif #line > 0 then
       local item = M.parse_status_line(line)
       if item.type == "file_change" then

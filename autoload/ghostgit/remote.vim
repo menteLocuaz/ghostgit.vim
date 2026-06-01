@@ -95,15 +95,16 @@ function! ghostgit#remote#BrowseFile(...) abort
 endfunction
 
 " Get the URL of a specific remote
-function! ghostgit#remote#GetRemoteURL(remote_name) abort
+function! ghostgit#remote#GetRemoteURL(remote_name, ...) abort
+  let l:cwd = get(a:000, 0, '')
   " Verify that the remote exists
-  let l:remotes = ghostgit#core#Run(['remote'], '', {'silent': 1})
+  let l:remotes = ghostgit#core#Run(['remote'], l:cwd, {'silent': 1})
   if empty(l:remotes) || index(l:remotes, a:remote_name) == -1
     return ''
   endif
 
   " Get remote URL
-  let l:output = ghostgit#core#Run(['remote', 'get-url', a:remote_name], '', {'silent': 1})
+  let l:output = ghostgit#core#Run(['remote', 'get-url', a:remote_name], l:cwd, {'silent': 1})
   if empty(l:output)
     return ''
   endif
@@ -231,15 +232,22 @@ function! ghostgit#remote#OpenURL(url) abort
 endfunction
 
 " List all available remotes
-function! ghostgit#remote#List() abort
+function! ghostgit#remote#List(...) abort
+  let l:cwd = get(a:000, 0, '')
+
   " Verify that we are in a Git repository
-  if !ghostgit#core#IsRepo()
+  if !empty(l:cwd)
+    if !ghostgit#core#IsRepo(l:cwd)
+      call ghostgit#util#Error('Not a git repository')
+      return []
+    endif
+  elseif !ghostgit#core#IsRepo()
     call ghostgit#util#Error('Not in a git repository')
     return []
   endif
 
   " Get list of remotes
-  let l:remotes = ghostgit#core#Run(['remote'], '', {'silent': 1})
+  let l:remotes = ghostgit#core#Run(['remote'], l:cwd, {'silent': 1})
   if empty(l:remotes)
     call ghostgit#util#Info('No remotes found')
     return []
@@ -248,7 +256,7 @@ function! ghostgit#remote#List() abort
   " Get URL of each remote
   let l:remote_info = []
   for l:remote in l:remotes
-    let l:url = ghostgit#remote#GetRemoteURL(l:remote)
+    let l:url = ghostgit#remote#GetRemoteURL(l:remote, l:cwd)
     call add(l:remote_info, {'name': l:remote, 'url': l:url})
   endfor
 

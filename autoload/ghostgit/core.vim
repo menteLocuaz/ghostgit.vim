@@ -143,31 +143,56 @@ function! ghostgit#core#Execute(args) abort
 
   let l:arg_list = split(a:args)
   let l:cmd_name = get(l:arg_list, 0, '')
+  let l:force_paginate = 0
+
+  " Check for pagination flags
+  if l:cmd_name ==# '-p' || l:cmd_name ==# '--paginate'
+    let l:force_paginate = 1
+    call remove(l:arg_list, 0)
+    let l:cmd_name = get(l:arg_list, 0, '')
+  endif
 
   " Special commands that need different treatment
   if l:cmd_name ==# 'commit'
     " Open commit interface
     call call('ghostgit#commit#Open', l:arg_list[1:])
     return
+  elseif l:cmd_name ==# 'blame'
+    " Use dedicated blame module
+    if len(l:arg_list) > 1
+      call ghostgit#blame#Open(l:arg_list[1])
+    else
+      call ghostgit#blame#Open()
+    endif
+    return
+  elseif l:cmd_name ==# 'mergetool' || l:cmd_name ==# 'difftool'
+    " Run sync and load into quickfix for these tools
+    let l:output = ghostgit#core#Run(l:arg_list)
+    if !empty(l:output)
+      cexpr l:output
+      copen
+    endif
+    return
   endif
 
   " Use job queue for Execute to keep UI responsive
   call ghostgit#job#Schedule('execute', ['git'] + l:arg_list, {
-        \ 'on_success': {lines -> s:OnExecuteResult(l:cmd_name, l:arg_list, lines)},
+        \ 'on_success': {lines -> s:OnExecuteResult(l:cmd_name, l:arg_list, lines, l:force_paginate)},
         \ 'on_failure': {err -> ghostgit#util#Error('Git command failed: ' . join(err, "\n"))}
         \ })
 endfunction
 
 " Callback for Execute result
-function! s:OnExecuteResult(cmd_name, arg_list, output) abort
+function! s:OnExecuteResult(cmd_name, arg_list, output, force_paginate) abort
   if empty(a:output)
-    call ghostgit#util#Info('Command completed successfully (no output)')
+    " Avoid 'Press ENTER' for quiet commands by using simple echo if possible
+    echo '[ghostgit] Command completed successfully (no output)'
     return
   endif
 
   " Decide how to display the output
   " If it has more than 10 lines or is a command that produces structured output
-  if len(a:output) > 10 || a:cmd_name =~# '^\(diff\|show\|log\|blame\|status\|stash\)$'
+  if a:force_paginate || len(a:output) > 10 || a:cmd_name =~# '^\(diff\|show\|log\|blame\|status\|stash\)$'
     " Determine filetype based on command
     let l:ft = 'text'
     if a:cmd_name ==# 'diff' || a:cmd_name ==# 'show'
@@ -195,7 +220,17 @@ endfunction
 
 " Return root of current repository
 function! ghostgit#core#RepoRoot(...) abort
-  let l:cwd = get(a:000, 0, getcwd())
+  let l:cwd = get(a:000, 0, '')
+
+  " If no path provided, prioritize current buffer's directory over getcwd()
+  if empty(l:cwd)
+    let l:buf_path = expand('%:p:h')
+    if !empty(l:buf_path) && isdirectory(l:buf_path)
+      let l:cwd = l:buf_path
+    else
+      let l:cwd = getcwd()
+    endif
+  endif
 
   " Buffer-local cache check
   if a:0 == 0 && exists('b:ghostgit_repo_root') && !empty(b:ghostgit_repo_root)
@@ -242,13 +277,15 @@ function! ghostgit#core#CurrentBranch(...) abort
   let l:root = ghostgit#core#RepoRoot(l:cwd)
   if empty(l:root) | return '' | endif
 
-  " Check if cache is fresh (e.g., less than 5 seconds old)
-  let l:repo = ghostgit#state#GetRepo(l:root)
-  if !empty(get(l:repo, 'branch', '')) && (localtime() - get(l:repo, 'last_refresh', 0) < 5)
-    return l:repo.branch
+  " Skip cache when called with an explicit cwd — the caller cares about
+  " accuracy, not speed (e.g., after a branch switch in a test or callback).
+  if a:0 == 0
+    let l:repo = ghostgit#state#GetRepo(l:root)
+    if !empty(get(l:repo, 'branch', '')) && (localtime() - get(l:repo, 'last_refresh', 0) < 5)
+      return l:repo.branch
+    endif
   endif
 
-  " Run command (always, to avoid stale cache)
   let l:result = ghostgit#core#Run(['rev-parse', '--abbrev-ref', 'HEAD'], l:cwd, {'silent': 1})
   if !empty(l:result) && !empty(l:result[0])
     let l:branch = l:result[0]
@@ -276,7 +313,7 @@ function! ghostgit#core#IsRepo(...) abort
   endif
 
   let l:output = ghostgit#core#Run(['rev-parse', '--git-dir'], l:cwd, {'silent': 1})
-  return !empty(l:output)
+  return !empty(l:output) && l:output[0] !~# '^fatal:'
 endfunction
 
 " Get list of branches

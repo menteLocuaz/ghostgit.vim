@@ -1,5 +1,6 @@
 Before:
   let g:ghostgit_async_disable = 1
+  call ghostgit#state#Clear()
   let g:repo = ghostgit#test#Setup()
   let g:cwd = getcwd()
 

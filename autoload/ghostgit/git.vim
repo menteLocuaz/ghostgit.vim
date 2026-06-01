@@ -9,7 +9,6 @@ function! ghostgit#git#Status(...) abort
   
   if a:0 > 0
     if type(a:1) == v:t_func
-      " Legacy support for callback as first arg
       let l:opts = {'on_exit': {job, code -> a:1([], code)}}
       let l:cwd = get(a:000, 1, '')
     elseif type(a:1) == v:t_dict
@@ -17,7 +16,9 @@ function! ghostgit#git#Status(...) abort
       let l:cwd = get(a:000, 1, '')
     else
       let l:cwd = a:1
-      let l:opts = get(a:000, 1, {})
+      if a:0 > 1 && type(a:2) == v:t_dict
+        let l:opts = a:2
+      endif
     endif
   endif
 
@@ -83,18 +84,8 @@ endfunction
 " Get diff from a file
 function! ghostgit#git#Diff(file, ...) abort
   let l:extra_args = get(a:000, 0, '')
-  let l:cwd = ''
-  let l:opts = {}
-  
-  if a:0 > 1
-    if type(a:2) == v:t_dict
-      let l:opts = a:2
-      let l:cwd = a:1
-    else
-      let l:cwd = a:1
-      let l:opts = get(a:000, 2, {})
-    endif
-  endif
+  let l:cwd = get(a:000, 1, '')
+  let l:opts = get(a:000, 2, {})
   
   let l:args = ['diff']
   
@@ -144,18 +135,11 @@ function! ghostgit#git#Commit(message, ...) abort
   endif
   
   let l:options = get(a:000, 0, [])
-  let l:cwd = ''
-  let l:opts = {}
-  
-  if a:0 > 1
-    if type(a:2) == v:t_dict
-      let l:opts = a:2
-      let l:cwd = a:1
-    else
-      let l:cwd = a:1
-      let l:opts = get(a:000, 2, {})
-    endif
+  if type(l:options) == v:t_dict
+    let l:options = []
   endif
+  let l:cwd = get(a:000, 1, '')
+  let l:opts = get(a:000, 2, {})
   
   let l:args = ['commit', '-m', a:message]
   
@@ -200,16 +184,20 @@ function! ghostgit#git#Checkout(branch, ...) abort
     return []
   endif
   
-  let l:options = get(a:000, 0, [])
+  let l:options = []
   let l:cwd = ''
   let l:opts = {}
   
-  if a:0 > 1
-    if type(a:2) == v:t_dict
-      let l:opts = a:2
+  if a:0 > 0
+    if type(a:1) == v:t_string
       let l:cwd = a:1
+      let l:opts = get(a:000, 1, {})
+    elseif type(a:1) == v:t_dict
+      let l:opts = a:1
+      let l:cwd = get(a:000, 1, '')
     else
-      let l:cwd = a:1
+      let l:options = a:1
+      let l:cwd = get(a:000, 1, '')
       let l:opts = get(a:000, 2, {})
     endif
   endif
@@ -219,25 +207,18 @@ function! ghostgit#git#Checkout(branch, ...) abort
     call extend(l:args, l:options)
   endif
   call add(l:args, a:branch)
-  
+
   return ghostgit#core#Run(l:args, l:cwd, l:opts)
 endfunction
 
 " Push changes
 function! ghostgit#git#Push(...) abort
   let l:options = get(a:000, 0, [])
-  let l:cwd = ''
-  let l:opts = {}
-  
-  if a:0 > 1
-    if type(a:2) == v:t_dict
-      let l:opts = a:2
-      let l:cwd = a:1
-    else
-      let l:cwd = a:1
-      let l:opts = get(a:000, 2, {})
-    endif
+  if type(l:options) == v:t_dict
+    let l:options = []
   endif
+  let l:cwd = get(a:000, 1, '')
+  let l:opts = get(a:000, 2, {})
   
   let l:args = ['push']
   if empty(l:options)
@@ -268,18 +249,11 @@ endfunction
 " Shift pull
 function! ghostgit#git#Pull(...) abort
   let l:options = get(a:000, 0, [])
-  let l:cwd = ''
-  let l:opts = {}
-  
-  if a:0 > 1
-    if type(a:2) == v:t_dict
-      let l:opts = a:2
-      let l:cwd = a:1
-    else
-      let l:cwd = a:1
-      let l:opts = get(a:000, 2, {})
-    endif
+  if type(l:options) == v:t_dict
+    let l:options = []
   endif
+  let l:cwd = get(a:000, 1, '')
+  let l:opts = get(a:000, 2, {})
   
   let l:args = ['pull']
   if !empty(l:options)
