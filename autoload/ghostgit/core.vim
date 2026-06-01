@@ -7,7 +7,7 @@ if !exists('g:ghostgit_core_timeout')
   let g:ghostgit_core_timeout = 30
 endif
 
-" Execute a Git command and return the output
+" Execute a Git command and return the output (sync) or start a job (async)
 function! ghostgit#core#Run(args, ...) abort
   let l:cwd = get(a:000, 0, '')
   let l:opts = get(a:000, 1, {})
@@ -33,6 +33,11 @@ function! ghostgit#core#Run(args, ...) abort
 
   " Build Git command
   let l:cmd = ['git', '-C', l:cwd] + l:cmd_args
+
+  " Support async execution if a callback is provided in opts
+  if has_key(l:opts, 'on_success') || has_key(l:opts, 'on_exit')
+    return ghostgit#job#Run(l:cmd, l:opts)
+  endif
 
   " Run command with timeout handling
   let l:timeout = get(l:opts, 'timeout', g:ghostgit_core_timeout)
@@ -105,13 +110,14 @@ function! ghostgit#core#RunWithTimeout(cmd, timeout) abort
   let l:start_time = reltime()
 
   " Wait until timeout or completion
+  " Performance: sleep allows UI redrawing but blocks script execution.
   while job_status(l:job) == 'run' && reltimefloat(reltime(l:start_time)) < a:timeout
     if ch_status(l:ch) == 'buffered'
       let l:data = ch_read(l:ch, {'raw': 1})
       let l:lines = split(l:data, "\n", 1)
       let l:output += l:lines
     endif
-    sleep 10m
+    sleep 5m
   endwhile
 
   " If the job is still running, terminate it.
@@ -145,50 +151,44 @@ function! ghostgit#core#Execute(args) abort
     return
   endif
 
-  let l:output = ghostgit#core#Run(l:arg_list)
+  " Use job queue for Execute to keep UI responsive
+  call ghostgit#job#Schedule('execute', ['git'] + l:arg_list, {
+        \ 'on_success': {lines -> s:OnExecuteResult(l:cmd_name, l:arg_list, lines)},
+        \ 'on_failure': {err -> ghostgit#util#Error('Git command failed: ' . join(err, "\n"))}
+        \ })
+endfunction
 
-  if empty(l:output)
-    " Check if there was an error or if there is simply no exit.
-    if v:shell_error == 0
-      call ghostgit#util#Info('Command completed successfully (no output)')
-    endif
+" Callback for Execute result
+function! s:OnExecuteResult(cmd_name, arg_list, output) abort
+  if empty(a:output)
+    call ghostgit#util#Info('Command completed successfully (no output)')
     return
   endif
 
   " Decide how to display the output
   " If it has more than 10 lines or is a command that produces structured output
-  if len(l:output) > 10 || l:cmd_name =~# '^\(diff\|show\|log\|blame\|status\|stash\)$'
-    " Open special buffer for long output
-    call ghostgit#util#OpenBuffer('git://' . join(l:arg_list, '/'))
-
-    " Establish command-based syntax
-    if l:cmd_name ==# 'diff' || l:cmd_name ==# 'show'
-      setlocal filetype=diff
-    elseif l:cmd_name ==# 'log'
-      setlocal filetype=git
-    elseif l:cmd_name ==# 'status'
-      setlocal filetype=gitcommit
-    elseif l:cmd_name ==# 'stash'
-      setlocal filetype=git
-    else
-      setlocal filetype=text
+  if len(a:output) > 10 || a:cmd_name =~# '^\(diff\|show\|log\|blame\|status\|stash\)$'
+    " Determine filetype based on command
+    let l:ft = 'text'
+    if a:cmd_name ==# 'diff' || a:cmd_name ==# 'show'
+      let l:ft = 'diff'
+    elseif a:cmd_name ==# 'log' || a:cmd_name ==# 'stash'
+      let l:ft = 'git'
+    elseif a:cmd_name ==# 'status'
+      let l:ft = 'gitcommit'
     endif
 
+    " Open special buffer for long output
+    call ghostgit#util#OpenBuffer('git://' . join(a:arg_list, '/'), {'filetype': l:ft})
+
     " Render output
-    call ghostgit#util#Render(l:output)
-
-    " Configure mappings for navigation
-    nnoremap <silent><buffer> q :bd!<CR>
-    nnoremap <silent><buffer> <C-c> :bd!<CR>
-
-    " Configure buffer options
-    setlocal buftype=nofile
-    setlocal bufhidden=hide
-    setlocal noswapfile
+    call ghostgit#util#Render(a:output)
   else
     " For a short exit, simply show it.
-    for l:line in l:output
-      call ghostgit#util#Info(l:line)
+    for l:line in a:output
+      if !empty(l:line)
+        call ghostgit#util#Info(l:line)
+      endif
     endfor
   endif
 endfunction
@@ -242,6 +242,12 @@ function! ghostgit#core#CurrentBranch(...) abort
   let l:root = ghostgit#core#RepoRoot(l:cwd)
   if empty(l:root) | return '' | endif
 
+  " Check if cache is fresh (e.g., less than 5 seconds old)
+  let l:repo = ghostgit#state#GetRepo(l:root)
+  if !empty(get(l:repo, 'branch', '')) && (localtime() - get(l:repo, 'last_refresh', 0) < 5)
+    return l:repo.branch
+  endif
+
   " Run command (always, to avoid stale cache)
   let l:result = ghostgit#core#Run(['rev-parse', '--abbrev-ref', 'HEAD'], l:cwd, {'silent': 1})
   if !empty(l:result) && !empty(l:result[0])
@@ -253,7 +259,7 @@ function! ghostgit#core#CurrentBranch(...) abort
 
     " Update cache
     if exists('g:ghostgit_state')
-      call ghostgit#state#SetRepo(l:root, {'branch': l:branch})
+      call ghostgit#state#SetRepo(l:root, {'branch': l:branch, 'last_refresh': localtime()})
     endif
     return l:branch
   endif

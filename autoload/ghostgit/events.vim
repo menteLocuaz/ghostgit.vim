@@ -9,10 +9,8 @@ endif
 
 if !exists('g:ghostgit_autorefresh_events')
   let g:ghostgit_autorefresh_events = [
-        \ 'BufWritePost', 
-        \ 'FocusGained', 
-        \ 'ShellCmdPost', 
-        \ 'DirChanged',
+        \ 'BufWritePost',
+        \ 'ShellCmdPost',
         \ 'VimResume'
         \ ]
 endif
@@ -28,7 +26,7 @@ endif
 " Initialize automatic event listeners
 function! ghostgit#events#Init() abort
   " Check if automatic updates are disabled
-  if g:ghostgit_disable_autorefreshDebug
+  if g:ghostgit_disable_autorefresh
     return
   endif
 
@@ -219,8 +217,3 @@ function! ghostgit#events#CheckAutoRefreshStatus() abort
   endif
 endfunction
 
-" Commands for event control
-command! GRefresh call ghostgit#events#ForceRefresh()
-command! GAutoRefreshDisable call ghostgit#events#DisableAutoRefresh()
-command! GAutoRefreshEnable call ghostgit#events#EnableAutoRefresh()
-command! GAutoRefreshStatus call ghostgit#events#CheckAutoRefreshStatus()

@@ -4,19 +4,19 @@ A minimalist Git UI plugin for Vim and Neovim. Provides scratch-buffer interface
 
 ## Commands
 
-| Command         | Description                                   |
-| --------------- | --------------------------------------------- |
-| `:GStatus`      | Open repository status (short + branch)       |
-| `:GLog`         | Open commit log (oneline + graph)             |
-| `:GBlame`       | Open git blame for the current file           |
-| `:GCommit`      | Open commit message editor                    |
-| `:GCommit --amend` | Amend the last commit                      |
-| `:GDiff <file>` | Open diff for a file                          |
-| `:GBrowse`      | Open remote URL in browser                    |
-| `:Git <args>`   | Run an arbitrary git command (with completion) |
-| `:G <args>`     | Alias for `:Git`                              |
+| Command            | Description                                    |
+| ------------------ | ---------------------------------------------- |
+| `:GStatus`         | Open repository status (short + branch)        |
+| `:GLog`            | Open commit log (oneline + graph)              |
+| `:GBlame`          | Open git blame for the current file            |
+| `:GCommit`         | Open commit message editor                     |
+| `:GCommit --amend` | Amend the last commit                          |
+| `:GDiff <file>`    | Open diff for a file                           |
+| `:GBrowse`         | Open remote URL in browser                     |
+| `:Git <args>`      | Run an arbitrary git command (with completion) |
+| `:G <args>`        | Alias for `:Git`                               |
 
-### Status buffer keymaps
+### Status buffer keymaps sxd
 
 | Key    | Action                          |
 | ------ | ------------------------------- |
@@ -31,18 +31,18 @@ A minimalist Git UI plugin for Vim and Neovim. Provides scratch-buffer interface
 
 ### Log buffer keymaps
 
-| Key    | Action                            |
-| ------ | --------------------------------- |
-| `<cr>` | View full commit details          |
-| `r`    | Refresh log                       |
-| `q`    | Close buffer                      |
+| Key    | Action                   |
+| ------ | ------------------------ |
+| `<cr>` | View full commit details |
+| `r`    | Refresh log              |
+| `q`    | Close buffer             |
 
 ### Commit buffer keymaps
 
-| Key           | Action                |
-| ------------- | --------------------- |
-| `<C-c><C-c>`  | Finish and commit     |
-| `q`           | Close buffer          |
+| Key          | Action            |
+| ------------ | ----------------- |
+| `<C-c><C-c>` | Finish and commit |
+| `q`          | Close buffer      |
 
 ## Tab-completion
 
@@ -101,5 +101,7 @@ Uses `jobstart()` (Neovim) or `job_start()` (Vim8) with synchronous `systemlist(
 
 ## License
 
-**[Apache 2.0] (LICENSE)**
-**[Architecture](docs/infrastructure.md).**
+- **[Apache 2.0] (./LICENSE)**
+
+- **[Architecture](docs/infrastructure.md).**
+

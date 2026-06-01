@@ -1,3 +1,7 @@
+" ============================================================================
+" ghostgit.vim - Remote Operations Tests
+" ============================================================================
+
 Before:
   let g:ghostgit_async_disable = 1
   call ghostgit#state#Init()
@@ -9,22 +13,282 @@ After:
   silent! bd!
   execute 'cd ' . fnameescape(g:cwd)
 
-Execute (remote#Browse errors outside repo):
-  let g:plain = tempname()
-  call mkdir(g:plain, 'p')
-  execute 'cd ' . fnameescape(g:plain)
-  call ghostgit#remote#Browse()
-  call delete(g:plain, 'rf')
+" ============================================================================
+" ConvertSSHToHTTP
+" ============================================================================
+
+Execute (ConvertSSHToHTTP handles git@github.com):
+  let g:result = ghostgit#remote#ConvertSSHToHTTP('git@github.com:user/repo.git')
+  AssertEqual 'https://github.com/user/repo', g:result
+
+Execute (ConvertSSHToHTTP handles git@github.com without .git):
+  let g:result = ghostgit#remote#ConvertSSHToHTTP('git@github.com:user/repo')
+  AssertEqual 'https://github.com/user/repo', g:result
+
+Execute (ConvertSSHToHTTP strips user@ from HTTPS URL):
+  let g:result = ghostgit#remote#ConvertSSHToHTTP('https://user@github.com/user/repo')
+  AssertEqual 'https://github.com/user/repo', g:result
+
+Execute (ConvertSSHToHTTP leaves clean HTTPS URL unchanged):
+  let g:result = ghostgit#remote#ConvertSSHToHTTP('https://github.com/user/repo')
+  AssertEqual 'https://github.com/user/repo', g:result
+
+Execute (ConvertSSHToHTTP handles gitlab SSH URL):
+  let g:result = ghostgit#remote#ConvertSSHToHTTP('git@gitlab.com:user/repo.git')
+  AssertEqual 'https://gitlab.com/user/repo', g:result
+
+Execute (ConvertSSHToHTTP handles bitbucket SSH URL):
+  let g:result = ghostgit#remote#ConvertSSHToHTTP('git@bitbucket.org:user/repo.git')
+  AssertEqual 'https://bitbucket.org/user/repo', g:result
+
+Execute (ConvertSSHToHTTP preserves port in URL):
+  let g:result = ghostgit#remote#ConvertSSHToHTTP('https://github.com:8443/user/repo')
+  AssertEqual 'https://github.com:8443/user/repo', g:result
+
+Execute (ConvertSSHToHTTP handles empty string):
+  let g:result = ghostgit#remote#ConvertSSHToHTTP('')
+  AssertEqual '', g:result
+
+" ============================================================================
+" BuildFileURL
+" ============================================================================
+
+Execute (BuildFileURL builds GitHub URL):
+  let g:url = ghostgit#remote#BuildFileURL('https://github.com/user/repo', 'src/main.js', 'main', '')
+  AssertEqual 'https://github.com/user/repo/blob/main/src/main.js', g:url
+
+Execute (BuildFileURL builds GitHub URL with commit hash):
+  let g:url = ghostgit#remote#BuildFileURL('https://github.com/user/repo', 'src/main.js', '', 'abc123')
+  AssertEqual 'https://github.com/user/repo/blob/abc123/src/main.js', g:url
+
+Execute (BuildFileURL builds GitHub URL without file path):
+  let g:url = ghostgit#remote#BuildFileURL('https://github.com/user/repo', '', 'main', '')
+  AssertEqual 'https://github.com/user/repo/blob/main', g:url
+
+Execute (BuildFileURL builds GitLab URL):
+  let g:url = ghostgit#remote#BuildFileURL('https://gitlab.com/user/repo', 'src/main.js', 'main', '')
+  AssertEqual 'https://gitlab.com/user/repo/-/blob/main/src/main.js', g:url
+
+Execute (BuildFileURL builds Bitbucket URL):
+  let g:url = ghostgit#remote#BuildFileURL('https://bitbucket.org/user/repo', 'src/main.js', 'main', '')
+  AssertEqual 'https://bitbucket.org/user/repo/src/main/src/main.js', g:url
+
+Execute (BuildFileURL builds Gitee URL):
+  let g:url = ghostgit#remote#BuildFileURL('https://gitee.com/user/repo', 'src/main.js', 'main', '')
+  AssertEqual 'https://gitee.com/user/repo/blob/main/src/main.js', g:url
+
+Execute (BuildFileURL builds Pagure URL):
+  let g:url = ghostgit#remote#BuildFileURL('https://pagure.io/repo', 'src/main.js', 'main', '')
+  AssertEqual 'https://pagure.io/repo/blob/main/f/src/main.js', g:url
+
+Execute (BuildFileURL builds sourcehut URL):
+  let g:url = ghostgit#remote#BuildFileURL('https://git.sr.ht/~user/repo', 'src/main.js', 'main', '')
+  AssertEqual 'https://git.sr.ht/~user/repo/tree/main/item/src/main.js', g:url
+
+Execute (BuildFileURL uses HEAD for detached branch):
+  let g:url = ghostgit#remote#BuildFileURL('https://github.com/user/repo', 'file.js', 'HEAD detached at abc123', '')
+  AssertEqual 'https://github.com/user/repo/blob/HEAD/file.js', g:url
+
+Execute (BuildFileURL falls back to unknown host):
+  let g:url = ghostgit#remote#BuildFileURL('https://example.com/user/repo', 'file.js', 'main', '')
+  AssertEqual 'https://example.com/user/repo/blob/main/file.js', g:url
+
+" ============================================================================
+" LineRangeSuffix
+" ============================================================================
+
+Execute (LineRangeSuffix GitHub single line):
+  let g:suffix = ghostgit#remote#LineRangeSuffix('https://github.com/user/repo', 10, 10)
+  AssertEqual '#L10', g:suffix
+
+Execute (LineRangeSuffix GitHub range):
+  let g:suffix = ghostgit#remote#LineRangeSuffix('https://github.com/user/repo', 10, 20)
+  AssertEqual '#L10-L20', g:suffix
+
+Execute (LineRangeSuffix GitLab single line):
+  let g:suffix = ghostgit#remote#LineRangeSuffix('https://gitlab.com/user/repo', 10, 10)
+  AssertEqual '#L10', g:suffix
+
+Execute (LineRangeSuffix GitLab range):
+  let g:suffix = ghostgit#remote#LineRangeSuffix('https://gitlab.com/user/repo', 10, 20)
+  AssertEqual '#L10-20', g:suffix
+
+Execute (LineRangeSuffix Bitbucket single line):
+  let g:suffix = ghostgit#remote#LineRangeSuffix('https://bitbucket.org/user/repo', 10, 10)
+  AssertEqual '#lines-10', g:suffix
+
+Execute (LineRangeSuffix Bitbucket range):
+  let g:suffix = ghostgit#remote#LineRangeSuffix('https://bitbucket.org/user/repo', 10, 20)
+  AssertEqual '#lines-10:20', g:suffix
+
+Execute (LineRangeSuffix Gitee range):
+  let g:suffix = ghostgit#remote#LineRangeSuffix('https://gitee.com/user/repo', 10, 20)
+  AssertEqual '#L10-L20', g:suffix
+
+Execute (LineRangeSuffix Pagure single line):
+  let g:suffix = ghostgit#remote#LineRangeSuffix('https://pagure.io/repo', 10, 10)
+  AssertEqual '#_10', g:suffix
+
+Execute (LineRangeSuffix Pagure range):
+  let g:suffix = ghostgit#remote#LineRangeSuffix('https://pagure.io/repo', 10, 20)
+  AssertEqual '#_10-20', g:suffix
+
+Execute (LineRangeSuffix sourcehut range):
+  let g:suffix = ghostgit#remote#LineRangeSuffix('https://git.sr.ht/~user/repo', 10, 20)
+  AssertEqual '#L10-20', g:suffix
+
+Execute (LineRangeSuffix default fallback range):
+  let g:suffix = ghostgit#remote#LineRangeSuffix('https://example.com/repo', 10, 20)
+  AssertEqual '#L10-L20', g:suffix
+
+Execute (LineRangeSuffix returns empty for line1 <= 0):
+  let g:suffix = ghostgit#remote#LineRangeSuffix('https://github.com/user/repo', 0, 0)
+  AssertEqual '', g:suffix
+
+" ============================================================================
+" GetRemoteURL
+" ============================================================================
+
+Execute (GetRemoteURL returns empty without remotes):
+  execute 'cd ' . fnameescape(g:repo)
+  let g:url = ghostgit#remote#GetRemoteURL('origin')
+  AssertEqual '', g:url
+
+Execute (GetRemoteURL returns URL for existing remote):
+  execute 'cd ' . fnameescape(g:repo)
+  call ghostgit#core#Run(['remote', 'add', 'origin', 'https://github.com/user/repo'], g:repo)
+  let g:url = ghostgit#remote#GetRemoteURL('origin')
+  AssertEqual 'https://github.com/user/repo', g:url
+
+Execute (GetRemoteURL converts SSH URL):
+  execute 'cd ' . fnameescape(g:repo)
+  call ghostgit#core#Run(['remote', 'add', 'origin', 'git@github.com:user/repo.git'], g:repo)
+  let g:url = ghostgit#remote#GetRemoteURL('origin')
+  AssertEqual 'https://github.com/user/repo', g:url
+
+Execute (GetRemoteURL returns empty for nonexistent remote):
+  execute 'cd ' . fnameescape(g:repo)
+  let g:url = ghostgit#remote#GetRemoteURL('nonexistent')
+  AssertEqual '', g:url
+
+" ============================================================================
+" List
+" ============================================================================
+
+Execute (List returns empty without remotes):
+  execute 'cd ' . fnameescape(g:repo)
+  let g:list = ghostgit#remote#List()
+  AssertEqual [], g:list
+
+Execute (List returns remotes with URLs):
+  execute 'cd ' . fnameescape(g:repo)
+  call ghostgit#core#Run(['remote', 'add', 'origin', 'https://github.com/user/repo'], g:repo)
+  let g:list = ghostgit#remote#List()
+  AssertEqual 1, len(g:list)
+  AssertEqual 'origin', g:list[0].name
+  AssertEqual 'https://github.com/user/repo', g:list[0].url
+
+Execute (List returns multiple remotes):
+  execute 'cd ' . fnameescape(g:repo)
+  call ghostgit#core#Run(['remote', 'add', 'origin', 'https://github.com/user/repo'], g:repo)
+  call ghostgit#core#Run(['remote', 'add', 'upstream', 'https://github.com/upstream/repo'], g:repo)
+  let g:list = ghostgit#remote#List()
+  AssertEqual 2, len(g:list)
+  AssertEqual 'origin', g:list[0].name
+  AssertEqual 'upstream', g:list[1].name
+
+Execute (List returns empty outside repo):
+  let g:outside = tempname()
+  call mkdir(g:outside, 'p')
+  execute 'cd ' . fnameescape(g:outside)
+  let g:list = ghostgit#remote#List()
+  AssertEqual [], g:list
+  call delete(g:outside, 'rf')
+
+" ============================================================================
+" BrowseLine
+" ============================================================================
+
+Execute (BrowseLine does nothing outside remotes buffer):
+  let g:result = 'unchanged'
+  try
+    call ghostgit#remote#BrowseLine()
+    let g:result = 'completed'
+  catch
+    let g:result = 'error'
+  endtry
+  AssertEqual 'completed', g:result
+
+" ============================================================================
+" OpenURL (before stubs — tests original implementation)
+" ============================================================================
+
+Execute (OpenURL rejects invalid URL):
+  call ghostgit#remote#OpenURL('not-a-url')
   Assert 1
 
-Execute (remote#Browse errors without remote):
-  execute 'cd ' . fnameescape(g:repo)
-  call ghostgit#remote#Browse()
+Execute (OpenURL rejects empty URL):
+  call ghostgit#remote#OpenURL('')
   Assert 1
 
-Execute (remote#Browse handles SSH URL conversion):
-  let g:url = 'git@github.com:user/repo.git'
-  call ghostgit#core#Run(['remote', 'add', 'origin', g:url], g:repo)
+" ============================================================================
+" BrowseFile (legacy wrapper)
+" ============================================================================
+
+Execute (BrowseFile delegates to Browse inside repo with remote):
   execute 'cd ' . fnameescape(g:repo)
-  call ghostgit#remote#Browse()
+  call ghostgit#core#Run(['remote', 'add', 'origin', 'https://github.com/user/repo'], g:repo)
+
+  let g:captured_url = ''
+  function! ghostgit#remote#OpenURL(url) abort
+    let g:captured_url = a:url
+  endfunction
+
+  call ghostgit#remote#BrowseFile()
+  Assert g:captured_url =~# 'https://github.com/user/repo'
+  Assert g:captured_url =~# '/blob/'
+
+" ============================================================================
+" Browse — integration
+" ============================================================================
+
+Execute (Browse builds URL with remote and file):
+  execute 'cd ' . fnameescape(g:repo)
+  call ghostgit#core#Run(['remote', 'add', 'origin', 'https://github.com/user/repo'], g:repo)
+  call ghostgit#test#CreateFile(g:repo, 'test.txt', 'hello')
+
+  let g:captured = ''
+  function! ghostgit#remote#OpenURL(url) abort
+    let g:captured = a:url
+  endfunction
+
+  call ghostgit#remote#Browse(1, 1, 'test.txt')
+  Assert g:captured =~# 'https://github.com/user/repo'
+  Assert g:captured =~# 'test.txt'
+  Assert g:captured =~# '#L1'
+
+Execute (Browse builds URL with line range):
+  execute 'cd ' . fnameescape(g:repo)
+  call ghostgit#core#Run(['remote', 'add', 'origin', 'https://github.com/user/repo'], g:repo)
+  call ghostgit#test#CreateFile(g:repo, 'test.txt', "line1\nline2\nline3")
+
+  let g:captured = ''
+  function! ghostgit#remote#OpenURL(url) abort
+    let g:captured = a:url
+  endfunction
+
+  call ghostgit#remote#Browse(1, 3)
+  Assert g:captured =~# '#L1-L3'
+
+Execute (Browse errors outside repo):
+  let g:outside = tempname()
+  call mkdir(g:outside, 'p')
+  execute 'cd ' . fnameescape(g:outside)
+  call ghostgit#remote#Browse(1, 1)
+  call delete(g:outside, 'rf')
+  Assert 1
+
+Execute (Browse errors without remote):
+  execute 'cd ' . fnameescape(g:repo)
+  call ghostgit#remote#Browse(1, 1)
   Assert 1
