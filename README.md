@@ -101,4 +101,5 @@ Uses `jobstart()` (Neovim) or `job_start()` (Vim8) with synchronous `systemlist(
 
 ## License
 
-Apache 2.0
+**[Apache 2.0] (LICENSE)**
+**[Architecture](docs/infrastructure.md).**
